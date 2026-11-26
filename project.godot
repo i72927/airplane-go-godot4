@@ -1,0 +1,25 @@
+; Engine configuration file.
+; Generated for Airplane GO! (飛機GO！) Godot 4 3D Project
+
+config_version=5
+
+[application]
+
+config/name="飛機GO！3D 航空模擬 (Godot 4)"
+config/description="參考 PS2 飛機GO 與高雄輕軌邏輯打造之全 3D 航空模擬遊戲，內含 4 大主力客機 GLB 模型、10 座台日中實景地標機場、停機坪登機小視窗、一鍵中文塔台語音與四種天候雨刷。"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method.web="gl_compatibility"
+
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.05, 0.09, 0.16, 1)
