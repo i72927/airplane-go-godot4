@@ -29,19 +29,13 @@ jobs:
           mkdir -p "$HOME/.local/share/godot"
           rm -rf "$HOME/.local/share/godot/export_templates"
           ln -s /root/.local/share/godot/export_templates "$HOME/.local/share/godot/export_templates"
-          ls -la "$HOME/.local/share/godot/export_templates/4.3.stable" || ls -la /root/.local/share/godot/export_templates || true
-
-          THREAD_OPT="false"
-          if [ ! -f "$HOME/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip" ]; then
-            THREAD_OPT="true"
-          fi
 
           PROJ_FILE=$(find . -maxdepth 3 -name "project.godot" | head -n 1)
           PROJ_DIR=$(dirname "$PROJ_FILE")
           cd "$PROJ_DIR"
 
-          cat << EOF > export_presets.cfg
-          [preset.0]
+          python3 - << 'PYEOF'
+          cfg = """[preset.0]
 
           name="Web"
           platform="Web"
@@ -59,10 +53,10 @@ jobs:
 
           [preset.0.options]
 
-          custom_template/debug=""
-          custom_template/release=""
+          custom_template/debug="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_debug.zip"
+          custom_template/release="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip"
           variant/extensions_support=false
-          variant/thread_support=${THREAD_OPT}
+          variant/thread_support=false
           vram_texture_compression/for_desktop=true
           vram_texture_compression/for_mobile=true
           html/export_icon=false
@@ -72,10 +66,12 @@ jobs:
           html/focus_canvas_on_start=true
           html/experimental_virtual_keyboard=true
           progressive_web_app/enabled=false
-          EOF
+          """
+          open("export_presets.cfg", "w").write("\n".join(line.lstrip() for line in cfg.splitlines()) + "\n")
+          PYEOF
 
           godot --headless --editor --quit || true
-          godot -v --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
+          godot --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
