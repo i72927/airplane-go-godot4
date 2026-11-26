@@ -34,41 +34,35 @@ jobs:
           PROJ_DIR=$(dirname "$PROJ_FILE")
           cd "$PROJ_DIR"
 
-          python3 - << 'PYEOF'
-          cfg = """[preset.0]
-
-          name="Web"
-          platform="Web"
-          runnable=true
-          dedicated_server=false
-          custom_features=""
-          export_filter="all_resources"
-          include_filter=""
-          exclude_filter=""
-          export_path="build/web/index.html"
-          encryption_include_filters=""
-          encryption_exclude_filters=""
-          encrypt_pck=false
-          encrypt_directory=false
-
-          [preset.0.options]
-
-          custom_template/debug="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_debug.zip"
-          custom_template/release="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip"
-          variant/extensions_support=false
-          variant/thread_support=false
-          vram_texture_compression/for_desktop=true
-          vram_texture_compression/for_mobile=true
-          html/export_icon=false
-          html/custom_html_shell=""
-          html/head_include=""
-          html/canvas_resize_policy=2
-          html/focus_canvas_on_start=true
-          html/experimental_virtual_keyboard=true
-          progressive_web_app/enabled=false
-          """
-          open("export_presets.cfg", "w").write("\n".join(line.lstrip() for line in cfg.splitlines()) + "\n")
-          PYEOF
+          printf '%s\n' \
+            '[preset.0]' '' \
+            'name="Web"' \
+            'platform="Web"' \
+            'runnable=true' \
+            'dedicated_server=false' \
+            'custom_features=""' \
+            'export_filter="all_resources"' \
+            'include_filter=""' \
+            'exclude_filter=""' \
+            'export_path="build/web/index.html"' \
+            'encryption_include_filters=""' \
+            'encryption_exclude_filters=""' \
+            'encrypt_pck=false' \
+            'encrypt_directory=false' '' \
+            '[preset.0.options]' '' \
+            'custom_template/debug="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_debug.zip"' \
+            'custom_template/release="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip"' \
+            'variant/extensions_support=false' \
+            'variant/thread_support=false' \
+            'vram_texture_compression/for_desktop=true' \
+            'vram_texture_compression/for_mobile=true' \
+            'html/export_icon=false' \
+            'html/custom_html_shell=""' \
+            'html/head_include=""' \
+            'html/canvas_resize_policy=2' \
+            'html/focus_canvas_on_start=true' \
+            'html/experimental_virtual_keyboard=true' \
+            'progressive_web_app/enabled=false' > export_presets.cfg
 
           godot --headless --editor --quit || true
           godot --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
