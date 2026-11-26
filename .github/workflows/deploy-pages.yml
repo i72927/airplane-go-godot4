@@ -17,26 +17,15 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Godot 4.3
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.3.0
-          use-dotnet: false
-          include-templates: true
-
-      - name: Locate Project & Export Web HTML5
+      - name: Export Web HTML5
         run: |
           mkdir -p "$GITHUB_WORKSPACE/build/web"
-          TPL_DIR="$HOME/.local/share/godot/export_templates"
-          if [ -d "$TPL_DIR/4.3.0.stable" ] && [ ! -e "$TPL_DIR/4.3.stable" ]; then
-            ln -s "$TPL_DIR/4.3.0.stable" "$TPL_DIR/4.3.stable"
-          fi
-          ls -la "$TPL_DIR" || true
-
           PROJ_FILE=$(find . -maxdepth 3 -name "project.godot" | head -n 1)
           PROJ_DIR=$(dirname "$PROJ_FILE")
           cd "$PROJ_DIR"
@@ -60,8 +49,8 @@ jobs:
 
           [preset.0.options]
 
-          custom_template/debug=""
-          custom_template/release=""
+          custom_template/debug="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_debug.zip"
+          custom_template/release="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip"
           variant/extensions_support=false
           variant/thread_support=false
           vram_texture_compression/for_desktop=true
@@ -75,9 +64,8 @@ jobs:
           progressive_web_app/enabled=false
           EOF
 
-          mkdir -p .godot/editor
           godot --headless --editor --quit || true
-          godot --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
+          godot -v --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
