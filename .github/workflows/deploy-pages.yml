@@ -26,6 +26,10 @@ jobs:
       - name: Export Web HTML5
         run: |
           mkdir -p "$GITHUB_WORKSPACE/build/web"
+          mkdir -p "$HOME/.local/share/godot"
+          rm -rf "$HOME/.local/share/godot/export_templates"
+          ln -s /root/.local/share/godot/export_templates "$HOME/.local/share/godot/export_templates"
+
           PROJ_FILE=$(find . -maxdepth 3 -name "project.godot" | head -n 1)
           PROJ_DIR=$(dirname "$PROJ_FILE")
           cd "$PROJ_DIR"
@@ -49,8 +53,8 @@ jobs:
 
           [preset.0.options]
 
-          custom_template/debug="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_debug.zip"
-          custom_template/release="/root/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip"
+          custom_template/debug=""
+          custom_template/release=""
           variant/extensions_support=false
           variant/thread_support=false
           vram_texture_compression/for_desktop=true
@@ -65,7 +69,7 @@ jobs:
           EOF
 
           godot --headless --editor --quit || true
-          godot -v --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
+          godot --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
