@@ -31,16 +31,17 @@ jobs:
       - name: Locate Project & Export Web HTML5
         run: |
           mkdir -p "$GITHUB_WORKSPACE/build/web"
-          PROJ_FILE=$(find . -maxdepth 3 -name "project.godot" | head -n 1)
-          if [ -z "$PROJ_FILE" ]; then
-            echo "ERROR: project.godot not found in repository!"
-            exit 1
+          TPL_DIR="$HOME/.local/share/godot/export_templates"
+          if [ -d "$TPL_DIR/4.3.0.stable" ] && [ ! -e "$TPL_DIR/4.3.stable" ]; then
+            ln -s "$TPL_DIR/4.3.0.stable" "$TPL_DIR/4.3.stable"
           fi
+          ls -la "$TPL_DIR" || true
+
+          PROJ_FILE=$(find . -maxdepth 3 -name "project.godot" | head -n 1)
           PROJ_DIR=$(dirname "$PROJ_FILE")
-          echo "Found Godot project in: $PROJ_DIR"
           cd "$PROJ_DIR"
-          if [ ! -f export_presets.cfg ]; then
-            cat << 'EOF' > export_presets.cfg
+
+          cat << 'EOF' > export_presets.cfg
           [preset.0]
 
           name="Web"
@@ -65,7 +66,7 @@ jobs:
           variant/thread_support=false
           vram_texture_compression/for_desktop=true
           vram_texture_compression/for_mobile=true
-          html/export_icon=true
+          html/export_icon=false
           html/custom_html_shell=""
           html/head_include=""
           html/canvas_resize_policy=2
@@ -73,7 +74,7 @@ jobs:
           html/experimental_virtual_keyboard=true
           progressive_web_app/enabled=false
           EOF
-          fi
+
           mkdir -p .godot/editor
           godot --headless --editor --quit || true
           godot --headless --export-release "Web" "$GITHUB_WORKSPACE/build/web/index.html"
