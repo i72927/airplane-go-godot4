@@ -3,7 +3,6 @@ extends RefCounted
 
 var jetbridge: Node3D
 var taxi_arrows_root: Node3D
-var gate_turn_arrow: Node3D
 var tug_node: Node3D
 var wind_hubs: Array[Node3D] = []
 var radar_dishes: Array[Node3D] = []
@@ -138,33 +137,6 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 		var a4 := _make_box_mat(Vector3(2.0, 0.18, 4.6), Vector3(0.0, 0.14, az2), arrow_mat)
 		taxi_arrows_root.add_child(a4)
 	root.add_child(taxi_arrows_root)
-
-	# Floating Translucent Green 3D Left-Turn Arrow in the Air Ahead of Gate Turn-In (x=135, z=134, pointing +X into Gate)
-	gate_turn_arrow = Node3D.new()
-	gate_turn_arrow.position = Vector3(135.0, 13.5, 134.0)
-	var ga_mat := StandardMaterial3D.new()
-	ga_mat.albedo_color = Color(0.14, 0.96, 0.42, 0.68)
-	ga_mat.emission_enabled = true
-	ga_mat.emission = Color(0.14, 0.96, 0.42)
-	ga_mat.emission_energy_multiplier = 2.0
-	ga_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ga_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# Arrow shaft pointing +X (player's left when heading south +Z to gate)
-	gate_turn_arrow.add_child(_make_box_mat(Vector3(14.0, 3.6, 2.2), Vector3(-2.0, 0.0, 0.0), ga_mat))
-	# Arrowhead prism (cone pointing +X)
-	var head_mi := MeshInstance3D.new()
-	var head_cm := CylinderMesh.new()
-	head_cm.top_radius = 0.05
-	head_cm.bottom_radius = 5.2
-	head_cm.height = 8.5
-	head_cm.radial_segments = 4
-	head_mi.mesh = head_cm
-	head_mi.material_override = ga_mat
-	head_mi.rotation.z = -PI * 0.5
-	head_mi.position = Vector3(8.5, 0.0, 0.0)
-	gate_turn_arrow.add_child(head_mi)
-	gate_turn_arrow.visible = false
-	root.add_child(gate_turn_arrow)
 
 	# Green Centerline + Blue Edge Taxiway Lights
 	var green_mat := _emissive_mat(Color(0.25, 0.95, 0.45), 2.8)

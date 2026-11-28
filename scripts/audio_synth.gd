@@ -94,7 +94,7 @@ func _process(delta: float) -> void:
 				_real_jet_player.play()
 			var spd_f: float = clampf(speed_val / 350.0, 0.0, 1.0)
 			var target_p: float = 0.72 + throttle_val * 0.52 + spd_f * 0.14
-			var target_v: float = lerpf(-13.5, 1.5, clampf(throttle_val * 0.85 + spd_f * 0.25, 0.0, 1.0))
+			var target_v: float = lerpf(-19.5, -4.5, clampf(throttle_val * 0.85 + spd_f * 0.25, 0.0, 1.0))
 			_jet_pitch = lerpf(_jet_pitch, target_p, minf(1.0, delta * 2.8))
 			_jet_vol = lerpf(_jet_vol, target_v, minf(1.0, delta * 3.2))
 			_real_jet_player.pitch_scale = _jet_pitch
