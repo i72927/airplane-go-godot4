@@ -28,4 +28,4 @@ renderer/rendering_method="gl_compatibility"
 
 [gui]
 
-theme/custom_font="res://assets/fonts/zh_font.ttf"
+theme/custom_font="res://assets/fonts/latin_font.ttf"

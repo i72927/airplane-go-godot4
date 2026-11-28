@@ -4,10 +4,10 @@ var stick_vec: Vector2 = Vector2.ZERO
 var _touch_idx: int = -1
 var _mouse_down: bool = false
 var _knob_offset: Vector2 = Vector2.ZERO
-var max_radius: float = 48.0
+var max_radius: float = 86.0
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(144, 144)
+	custom_minimum_size = Vector2(260, 260)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 func get_stick_vec() -> Vector2:
@@ -66,14 +66,14 @@ func _draw() -> void:
 	draw_arc(c, base_r * 0.52, 0.0, TAU, 36, Color(0.55, 0.72, 0.90, 0.28), 1.5)
 
 	var dcol: Color = Color(1.0, 0.92, 0.45, 0.75)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -base_r + 8), c + Vector2(-7, -base_r + 18), c + Vector2(7, -base_r + 18)]), dcol)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, base_r - 8), c + Vector2(-7, base_r - 18), c + Vector2(7, base_r - 18)]), dcol)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(-base_r + 8, 0), c + Vector2(-base_r + 18, -7), c + Vector2(-base_r + 18, 7)]), dcol)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(base_r - 8, 0), c + Vector2(base_r - 18, -7), c + Vector2(base_r - 18, 7)]), dcol)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -base_r + 8), c + Vector2(-13, -base_r + 28), c + Vector2(13, -base_r + 28)]), dcol)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, base_r - 8), c + Vector2(-13, base_r - 28), c + Vector2(13, base_r - 28)]), dcol)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-base_r + 8, 0), c + Vector2(-base_r + 28, -13), c + Vector2(-base_r + 28, 13)]), dcol)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(base_r - 8, 0), c + Vector2(base_r - 28, -13), c + Vector2(base_r - 28, 13)]), dcol)
 
 	var kp: Vector2 = c + _knob_offset
-	draw_line(c, kp, Color(0.25, 0.30, 0.38, 0.85), 10.0)
-	draw_circle(kp + Vector2(0, 3), 26.0, Color(0.0, 0.0, 0.0, 0.45))
-	draw_circle(kp, 25.0, Color(0.96, 0.82, 0.18, 0.96))
-	draw_arc(kp, 25.0, 0.0, TAU, 32, Color(0.06, 0.06, 0.06, 0.95), 3.0)
-	draw_circle(kp + Vector2(-6, -6), 8.0, Color(1.0, 0.96, 0.72, 0.70))
+	draw_line(c, kp, Color(0.25, 0.30, 0.38, 0.85), 18.0)
+	draw_circle(kp + Vector2(0, 5), 48.0, Color(0.0, 0.0, 0.0, 0.45))
+	draw_circle(kp, 46.0, Color(0.96, 0.82, 0.18, 0.96))
+	draw_arc(kp, 46.0, 0.0, TAU, 36, Color(0.06, 0.06, 0.06, 0.95), 4.5)
+	draw_circle(kp + Vector2(-12, -12), 14.0, Color(1.0, 0.96, 0.72, 0.70))

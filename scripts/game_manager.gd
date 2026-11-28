@@ -451,11 +451,15 @@ func _apply_weather() -> void:
 func _setup_ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
-	var zh_f := load("res://assets/fonts/zh_font.ttf") as Font
+	var latin_f := load("res://assets/fonts/latin_font.ttf") as FontFile
+	var zh_f := load("res://assets/fonts/zh_font.ttf") as FontFile
 	ui_theme = Theme.new()
-	if zh_f != null:
+	if latin_f != null and zh_f != null:
+		latin_f.fallbacks = [zh_f]
+		ui_theme.default_font = latin_f
+	elif zh_f != null:
 		ui_theme.default_font = zh_f
-		ui_theme.default_font_size = 16
+	ui_theme.default_font_size = 24
 	var root_ctrl := Control.new()
 	root_ctrl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root_ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -472,7 +476,7 @@ func _setup_ui() -> void:
 	top_bar.offset_left = 12
 	top_bar.offset_right = -12
 	top_bar.offset_top = 8
-	top_bar.offset_bottom = 48
+	top_bar.offset_bottom = 66
 	top_bar.add_theme_constant_override("separation", 12)
 	root_ctrl.add_child(top_bar)
 
@@ -488,12 +492,12 @@ func _setup_ui() -> void:
 	top_bar.add_child(lbl_led)
 
 	var btn_fs := Button.new()
-	btn_fs.text = "⛶ 全螢幕"
+	btn_fs.text = "全螢幕"
 	btn_fs.pressed.connect(_toggle_fullscreen)
 	top_bar.add_child(btn_fs)
 
 	var btn_menu := Button.new()
-	btn_menu.text = "⚙ 航線選單"
+	btn_menu.text = "航線選單"
 	btn_menu.pressed.connect(_open_menu)
 	top_bar.add_child(btn_menu)
 
@@ -506,7 +510,7 @@ func _setup_ui() -> void:
 	lbl_scroll_intro.offset_bottom = 54
 	lbl_scroll_intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl_scroll_intro.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl_scroll_intro.text = "☁️ Q版飛機閃雲小遊戲（30秒）\n使用右側蘑菇搖桿上下閃避雲朵！"
+	lbl_scroll_intro.text = "Q版飛機閃雲小遊戲（30秒）\n使用右側蘑菇搖桿上下閃避雲朵！"
 	lbl_scroll_intro.add_theme_color_override("font_color", Color(1.0, 0.90, 0.16))
 	lbl_scroll_intro.add_theme_font_size_override("font_size", 24)
 	var intro_sb := StyleBoxFlat.new()
@@ -530,10 +534,10 @@ func _setup_ui() -> void:
 	btn_context = Button.new()
 	btn_context.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	btn_context.offset_left = 16
-	btn_context.offset_right = 176
-	btn_context.offset_top = -206
-	btn_context.offset_bottom = -148
-	btn_context.text = "📡 塔台聯絡"
+	btn_context.offset_right = 310
+	btn_context.offset_top = -376
+	btn_context.offset_bottom = -280
+	btn_context.text = "塔台聯絡"
 	btn_context.visible = false
 	var ctx_sb := StyleBoxFlat.new()
 	ctx_sb.bg_color = Color(1.0, 0.87, 0.12)
@@ -550,7 +554,7 @@ func _setup_ui() -> void:
 	btn_context.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
 	btn_context.add_theme_color_override("font_hover_color", Color(0.05, 0.05, 0.05))
 	btn_context.add_theme_color_override("font_pressed_color", Color(0.05, 0.05, 0.05))
-	btn_context.add_theme_font_size_override("font_size", 18)
+	btn_context.add_theme_font_size_override("font_size", 30)
 	btn_context.pressed.connect(_on_context_pressed)
 	root_ctrl.add_child(btn_context)
 
@@ -559,7 +563,7 @@ func _setup_ui() -> void:
 	bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bot.offset_left = 16
 	bot.offset_right = -16
-	bot.offset_top = -152
+	bot.offset_top = -274
 	bot.offset_bottom = -12
 	bot.add_theme_constant_override("separation", 12)
 	root_ctrl.add_child(bot)
@@ -572,14 +576,14 @@ func _setup_ui() -> void:
 	left_col.alignment = BoxContainer.ALIGNMENT_END
 	var btn_toga := Button.new()
 	btn_toga.text = "推滿起飛"
-	btn_toga.custom_minimum_size = Vector2(96, 52)
+	btn_toga.custom_minimum_size = Vector2(168, 114)
 	btn_toga.pressed.connect(func():
 		throttle = 0.0 if throttle >= 0.95 else 1.0
 		slider_thr.call("set_throttle_visual", throttle)
 	)
 	var btn_brk := Button.new()
 	btn_brk.text = "煞車 / 反推"
-	btn_brk.custom_minimum_size = Vector2(96, 56)
+	btn_brk.custom_minimum_size = Vector2(168, 118)
 	btn_brk.button_down.connect(func(): brake_held = true)
 	btn_brk.button_up.connect(func(): brake_held = false)
 	left_col.add_child(btn_toga)
@@ -594,13 +598,13 @@ func _setup_ui() -> void:
 	mid_col.size_flags_vertical = Control.SIZE_SHRINK_END
 	btn_wiper = Button.new()
 	btn_wiper.text = "雨刷：關"
-	btn_wiper.custom_minimum_size = Vector2(92, 52)
+	btn_wiper.custom_minimum_size = Vector2(174, 84)
 	btn_wiper.pressed.connect(_on_wiper_pressed)
 	mid_col.add_child(btn_wiper)
 
 	btn_cam = Button.new()
-	btn_cam.text = "👁 機尾後方"
-	btn_cam.custom_minimum_size = Vector2(112, 52)
+	btn_cam.text = "機尾後方"
+	btn_cam.custom_minimum_size = Vector2(194, 84)
 	btn_cam.pressed.connect(_on_cam_pressed)
 	mid_col.add_child(btn_cam)
 	bot.add_child(mid_col)
@@ -634,7 +638,7 @@ func _hud_label(txt: String, col: Color) -> Label:
 	l.add_theme_color_override("font_color", col)
 	l.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.96))
 	l.add_theme_constant_override("outline_size", 4)
-	l.add_theme_font_size_override("font_size", 18)
+	l.add_theme_font_size_override("font_size", 24)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.05, 0.09, 0.88)
 	sb.border_color = Color(0.28, 0.36, 0.48, 0.85)
@@ -673,7 +677,7 @@ func _build_setup_panel() -> void:
 	setup_panel.add_child(vb)
 
 	var title := Label.new()
-	title.text = "✈️ 飛機GO！Godot 4 專屬 3D 航空模擬"
+	title.text = "飛機GO！Godot 4 專屬 3D 航空模擬"
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.28))
 	vb.add_child(title)
@@ -708,10 +712,10 @@ func _build_setup_panel() -> void:
 	vb.add_child(row_apt)
 
 	opt_weather = OptionButton.new()
-	opt_weather.add_item("☀️ 白天晴空")
-	opt_weather.add_item("🌅 黃昏夕陽")
-	opt_weather.add_item("🌙 夜晚燈海")
-	opt_weather.add_item("🌧️ 雨天（自動啟用駕駛艙雨刷）")
+	opt_weather.add_item("白天晴空")
+	opt_weather.add_item("黃昏夕陽")
+	opt_weather.add_item("夜晚燈海")
+	opt_weather.add_item("雨天（自動啟用駕駛艙雨刷）")
 	opt_weather.item_selected.connect(func(_i): _update_route_preview())
 	vb.add_child(opt_weather)
 
@@ -720,7 +724,7 @@ func _build_setup_panel() -> void:
 	vb.add_child(lbl_route_desc)
 
 	var btn_go := Button.new()
-	btn_go.text = "✈️ 開始登機整備・執飛本班機"
+	btn_go.text = "開始登機整備・執飛本班機"
 	btn_go.custom_minimum_size = Vector2(0, 50)
 	btn_go.pressed.connect(_start_flight)
 	vb.add_child(btn_go)
@@ -769,7 +773,7 @@ func _update_route_preview() -> void:
 		opt_arr.selected = ai
 	arr_apt = airports[ai]
 	weather = ["day", "dusk", "night", "rain"][opt_weather.selected]
-	lbl_route_desc.text = "執飛：%s・航線：%s (%s 跑道 %s) ➔ %s (%s 跑道 %s・%dm)\n出發實景：%s\n進場實景：%s" % [
+	lbl_route_desc.text = "執飛：%s・航線：%s (%s 跑道 %s) -> %s (%s 跑道 %s・%dm)\n出發實景：%s\n進場實景：%s" % [
 		cur_airline["name"],
 		dep_apt["name"], dep_apt["code"], dep_apt["rwy"],
 		arr_apt["name"], arr_apt["code"], arr_apt["rwy"], arr_apt["len"],
@@ -861,7 +865,7 @@ func _start_flight() -> void:
 	overlay.show_pip = true
 	overlay.pip_is_boarding = true
 	lbl_pip_title.visible = true
-	lbl_pip_title.text = "🚶 旅客登機中 0%"
+	lbl_pip_title.text = "旅客登機中 0%"
 	lbl_led.text = "%s 停機坪・空橋旅客登機中" % dep_apt["name"]
 	_refresh_buttons()
 	audio.speak_mandarin("各位旅客您好，歡迎搭乘%s，本班機由%s飛往%s，目前正在登機作業。" % [cur_airline["callsign"], dep_apt["name"], arr_apt["name"]])
@@ -970,22 +974,22 @@ func _on_context_pressed() -> void:
 
 func _refresh_buttons() -> void:
 	btn_wiper.text = "雨刷：" + ["關", "慢速", "高速"][wiper_mode]
-	btn_cam.text = "👁 駕駛艙" if cam_is_cockpit else "👁 機尾後方"
+	btn_cam.text = "駕駛艙" if cam_is_cockpit else "機尾後方"
 	var act := _get_context_action()
 	if act == "atc":
-		btn_context.text = "📡 塔台聯絡"
+		btn_context.text = "塔台聯絡"
 		btn_context.visible = true
 	elif act == "gear_up":
-		btn_context.text = "🛞 收起落架"
+		btn_context.text = "收起落架"
 		btn_context.visible = true
 	elif act == "gear_dn":
-		btn_context.text = "🛞 放下起落架"
+		btn_context.text = "放下起落架"
 		btn_context.visible = true
 	elif act == "flaps_up":
-		btn_context.text = "🪶 收起襟翼"
+		btn_context.text = "收起襟翼"
 		btn_context.visible = true
 	elif act == "flaps_dn":
-		btn_context.text = "🪶 開啟襟翼"
+		btn_context.text = "開啟襟翼"
 		btn_context.visible = true
 	else:
 		btn_context.visible = false
@@ -1039,13 +1043,13 @@ func _process(delta: float) -> void:
 
 	if phase == "GATE_BOARD":
 		board_pct = minf(100.0, board_pct + dt * 22.0)
-		lbl_pip_title.text = "🚶 旅客登機中 %d%%" % int(board_pct)
+		lbl_pip_title.text = "旅客登機中 %d%%" % int(board_pct)
 		if board_pct >= 100.0:
 			overlay.show_pip = false
 			lbl_pip_title.visible = false
 			phase = "PUSHBACK_WAIT"
 			atc_ready = true
-			lbl_led.text = "登機完成！請點擊發光的「📡 塔台聯絡」請求後推"
+			lbl_led.text = "登機完成！請點擊發光的「塔台聯絡」請求後推"
 			_refresh_buttons()
 	elif phase == "PUSHBACK":
 		push_pct = minf(100.0, push_pct + dt * 26.0)
@@ -1128,7 +1132,7 @@ func _process(delta: float) -> void:
 				alt = 20.0
 				py = float(cur_plane["gear_height"]) + 3.0
 				time_left += 10.0
-				lbl_led.text = "✈️ 平順離地 (+10s)！爬升後請收起落架與襟翼"
+				lbl_led.text = "平順離地 (+10s)！爬升後請收起落架與襟翼"
 				audio.speak_mandarin("離地，正爬升，請收起起落架。")
 		else:
 			roll = lerpf(roll, steer_in * 32.0, dt * 5.5)
@@ -1164,7 +1168,7 @@ func _process(delta: float) -> void:
 				alt = 28000.0
 				speed = float(cur_plane["cruise_spd"])
 				lbl_scroll_intro.visible = true
-				lbl_led.text = "☁️ Q版飛機閃雲小遊戲（30秒）・用右側搖桿上下閃避雲朵"
+				lbl_led.text = "Q版飛機閃雲小遊戲（30秒）・用右側搖桿上下閃避雲朵"
 				_refresh_buttons()
 	elif phase == "SCROLL":
 		var move_y: float = (jy - kb_pitch) * 0.62
@@ -1211,7 +1215,7 @@ func _process(delta: float) -> void:
 					scroll_invuln = 1.2
 					time_left = maxf(0.0, time_left - 3.0)
 					audio.play_chime("warn")
-					lbl_led.text = "☁️ 撞到調皮雲朵 (-3s)！快用搖桿上下閃開"
+					lbl_led.text = "撞到調皮雲朵 (-3s)！快用搖桿上下閃開"
 				elif not cl["scored"] and float(cl["x"]) < 0.14:
 					cl["scored"] = true
 					if not cl["hit"]:
@@ -1227,7 +1231,7 @@ func _process(delta: float) -> void:
 				if absf(float(st["x"]) - 0.22) < 0.055 and absf(float(st["y"]) - scroll_plane_y) < 0.065:
 					time_left += 3.0
 					audio.play_chime("ring")
-					lbl_led.text = "⭐ 吃到幸運星 (+3s)！剩餘 %d:%02d 進入降落" % [floori(scroll_time_left / 60.0), int(scroll_time_left) % 60]
+					lbl_led.text = "吃到幸運星 (+3s)！剩餘 %d:%02d 進入降落" % [floori(scroll_time_left / 60.0), int(scroll_time_left) % 60]
 				elif float(st["x"]) > -0.10:
 					kept_stars.append(st)
 			scroll_stars = kept_stars
@@ -1260,7 +1264,7 @@ func _process(delta: float) -> void:
 					if absf(px - float(g["x"])) < 36.0 and absf(py - float(g["y"])) < 36.0:
 						time_left += 5.0
 						audio.play_chime("ring")
-						lbl_led.text = "🎯 通過進場引導環 (+5s)！"
+						lbl_led.text = "通過進場引導環 (+5s)！"
 
 			for ra in [500, 100, 50, 30, 20, 10]:
 				if alt <= float(ra) and not ra_flags.has(ra):
@@ -1288,13 +1292,13 @@ func _process(delta: float) -> void:
 				if not gear_down:
 					time_left = maxf(0.0, time_left - 10.0)
 					gear_down = true
-					lbl_led.text = "⚠️ 未放起落架緊急展開 (-10s)！請長按「煞車 / 反推」"
+					lbl_led.text = "未放起落架緊急展開 (-10s)！請長按「煞車 / 反推」"
 				elif landing_vsi < 380.0 and landing_offset < 12.0:
 					time_left += 15.0
-					lbl_led.text = "🌟 奶油落地 (+15s)！請收油並長按「煞車 / 反推」減速"
+					lbl_led.text = "奶油落地 (+15s)！請收油並長按「煞車 / 反推」減速"
 				else:
 					time_left += 6.0
-					lbl_led.text = "✈️ 主輪接地 (+6s)！請長按「煞車 / 反推」減速"
+					lbl_led.text = "主輪接地 (+6s)！請長按「煞車 / 反推」減速"
 				_refresh_buttons()
 		else:
 			var decel: float = (float(cur_plane["brake_power"]) * 1.45 * wet if is_brk else 5.0) + (1.0 - throttle) * 4.5
@@ -1312,7 +1316,7 @@ func _process(delta: float) -> void:
 				_refresh_buttons()
 	elif phase == "GATE_DEPLANE":
 		board_pct = minf(100.0, board_pct + dt * 24.0)
-		lbl_pip_title.text = "🚶 旅客下機中 %d%%" % int(board_pct)
+		lbl_pip_title.text = "旅客下機中 %d%%" % int(board_pct)
 		if board_pct >= 100.0:
 			overlay.show_pip = false
 			lbl_pip_title.visible = false
@@ -1330,7 +1334,7 @@ func _process(delta: float) -> void:
 				intro_video.visible = true
 				intro_video.play()
 			var grade := "S" if time_left >= 165.0 else ("A" if time_left >= 135.0 else ("B" if time_left >= 95.0 else "C"))
-			lbl_res_body.text = "綜合評級：%s 級\n執飛航線：%s・%s ➔ %s\n最終剩餘時間：%.1f 秒\n著陸表現：%s（偏離中線 %.1f 公尺）\n塔台中文語音通話：%d 次完成" % [
+			lbl_res_body.text = "綜合評級：%s 級\n執飛航線：%s・%s -> %s\n最終剩餘時間：%.1f 秒\n著陸表現：%s（偏離中線 %.1f 公尺）\n塔台中文語音通話：%d 次完成" % [
 				grade, cur_plane["name"], dep_apt["name"], arr_apt["name"], time_left,
 				("奶油順暢" if landing_vsi < 380.0 else "平穩落地"), landing_offset, atc_count
 			]

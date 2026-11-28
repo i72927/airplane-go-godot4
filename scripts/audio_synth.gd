@@ -200,13 +200,24 @@ func _pick_human_voice(prefer_male: bool) -> String:
 		return fallback[0]
 	return ""
 
+func _web_tts(text: String, lang: String, pitch: float, rate: float) -> void:
+	var safe: String = text.replace("\\", "").replace("'", "").replace('"', "").replace("\n", " ")
+	var js: String = "try{if(window.speechSynthesis){window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance('%s');u.lang='%s';u.pitch=%f;u.rate=%f;u.volume=1.0;var vs=window.speechSynthesis.getVoices();for(var i=0;i<vs.length;i++){if(vs[i].lang&&vs[i].lang.toLowerCase().indexOf('%s')===0){u.voice=vs[i];break;}}window.speechSynthesis.speak(u);}}catch(e){}" % [safe, lang, pitch, rate, lang.to_lower().substr(0, 2)]
+	JavaScriptBridge.eval(js)
+
 func speak_mandarin(text: String) -> void:
+	if OS.has_feature("web"):
+		_web_tts(text, "zh-TW", 1.05, 1.05)
+		return
 	var vid: String = _pick_human_voice(false)
 	if vid != "":
 		DisplayServer.tts_stop()
 		DisplayServer.tts_speak(text, vid, 88, 1.07, 1.06)
 
 func speak_pilot_male(text: String) -> void:
+	if OS.has_feature("web"):
+		_web_tts(text, "en-US", 0.74, 0.96)
+		return
 	var vid: String = _pick_human_voice(true)
 	if vid == "":
 		var en_fb: PackedStringArray = DisplayServer.tts_get_voices_for_language("en")

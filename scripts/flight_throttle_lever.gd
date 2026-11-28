@@ -7,7 +7,7 @@ var _touch_idx: int = -1
 var _mouse_down: bool = false
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(76, 148)
+	custom_minimum_size = Vector2(124, 248)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 func set_throttle_visual(val: float) -> void:
@@ -45,8 +45,8 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 func _update_from_y(py: float) -> void:
-	var top_pad: float = 22.0
-	var bot_pad: float = size.y - 22.0
+	var top_pad: float = 34.0
+	var bot_pad: float = size.y - 34.0
 	var frac: float = clampf(1.0 - ((py - top_pad) / maxf(1.0, bot_pad - top_pad)), 0.0, 1.0)
 	throttle_val = frac
 	emit_signal("throttle_changed", throttle_val)
@@ -63,11 +63,11 @@ func _draw() -> void:
 	draw_rect(Rect2(6, 6, W - 12, H - 12), Color(0.24, 0.29, 0.36, 0.55), false, 1.5)
 
 	# Dual slotted tracks for twin-engine thrust levers
-	var top_y: float = 22.0
-	var bot_y: float = H - 22.0
-	for sx in [cx - 12.0, cx + 12.0]:
-		draw_rect(Rect2(sx - 4.0, top_y, 8.0, bot_y - top_y), Color(0.03, 0.04, 0.06))
-		draw_rect(Rect2(sx - 4.0, top_y, 8.0, bot_y - top_y), Color(0.35, 0.42, 0.50), false, 1.0)
+	var top_y: float = 34.0
+	var bot_y: float = H - 34.0
+	for sx in [cx - 22.0, cx + 22.0]:
+		draw_rect(Rect2(sx - 6.0, top_y, 12.0, bot_y - top_y), Color(0.03, 0.04, 0.06))
+		draw_rect(Rect2(sx - 6.0, top_y, 12.0, bot_y - top_y), Color(0.35, 0.42, 0.50), false, 1.0)
 
 	# Detent tick marks (TOGA / CLB / 50% / IDLE)
 	for ti in range(5):
@@ -85,15 +85,15 @@ func _draw() -> void:
 	# Sculpted Twin-Engine T-Bar Aircraft Thrust Lever Handle
 	var hy: float = lerpf(bot_y, top_y, throttle_val)
 	# Metallic stalks from quadrant bottom to handle
-	for sx in [cx - 12.0, cx + 12.0]:
+	for sx in [cx - 22.0, cx + 22.0]:
 		draw_line(Vector2(sx, bot_y), Vector2(sx, hy), Color(0.62, 0.68, 0.76), 5.0)
 		draw_line(Vector2(sx - 1.5, bot_y), Vector2(sx - 1.5, hy), Color(0.88, 0.92, 0.96), 1.8)
 
 	# Handle shadow + ergonomic T-bar grip
-	draw_rect(Rect2(10.0, hy - 8.0, W - 20.0, 22.0), Color(0.0, 0.0, 0.0, 0.48))
-	draw_rect(Rect2(8.0, hy - 11.0, W - 16.0, 22.0), Color(0.20, 0.24, 0.30))
-	draw_rect(Rect2(8.0, hy - 11.0, W - 16.0, 8.0), Color(0.36, 0.42, 0.50))
-	draw_rect(Rect2(8.0, hy - 11.0, W - 16.0, 22.0), Color(0.04, 0.04, 0.06), false, 2.5)
+	draw_rect(Rect2(10.0, hy - 14.0, W - 20.0, 36.0), Color(0.0, 0.0, 0.0, 0.48))
+	draw_rect(Rect2(8.0, hy - 18.0, W - 16.0, 36.0), Color(0.20, 0.24, 0.30))
+	draw_rect(Rect2(8.0, hy - 18.0, W - 16.0, 12.0), Color(0.36, 0.42, 0.50))
+	draw_rect(Rect2(8.0, hy - 18.0, W - 16.0, 36.0), Color(0.04, 0.04, 0.06), false, 2.5)
 	# Grip center yellow/white thrust indicator band & twin handle divider
 	draw_line(Vector2(14.0, hy), Vector2(W - 14.0, hy), Color(1.0, 0.88, 0.18), 3.0)
-	draw_line(Vector2(cx, hy - 11.0), Vector2(cx, hy + 11.0), Color(0.05, 0.06, 0.08), 3.0)
+	draw_line(Vector2(cx, hy - 18.0), Vector2(cx, hy + 18.0), Color(0.05, 0.06, 0.08), 3.0)
