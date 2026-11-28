@@ -1,0 +1,16 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+build/
+*.translation
+
+# Mono / C#
+.mono/
+data_*/
+mono_crash.*.json
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
