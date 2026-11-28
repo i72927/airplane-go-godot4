@@ -1364,6 +1364,9 @@ func _process(delta: float) -> void:
 
 	if builder.taxi_arrows_root != null:
 		builder.taxi_arrows_root.visible = (phase in ["PUSHBACK_WAIT", "PUSHBACK", "TAXI_WAIT", "TAXI_OUT", "TAXI_IN"])
+	if builder.gate_turn_arrow != null:
+		builder.gate_turn_arrow.visible = (phase == "TAXI_IN")
+		builder.gate_turn_arrow.position.y = 13.5 + sin(t * 4.2) * 1.4
 
 	rain_particles.position = Vector3(px, py + 25.0, pz - 30.0)
 
