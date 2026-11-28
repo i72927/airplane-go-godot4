@@ -4,7 +4,7 @@ extends Node
 var _eng_player: AudioStreamPlayer
 var _real_jet_player: AudioStreamPlayer
 var _jet_pitch: float = 0.78
-var _jet_vol: float = -22.0
+var _jet_vol: float = 2.0
 var _eng_gen: AudioStreamGenerator
 var _eng_pb: AudioStreamGeneratorPlayback
 var _phase: float = 0.0
@@ -63,7 +63,7 @@ func _ready() -> void:
 		wav_s.loop_end = int(wav_s.get_length() * float(wav_s.mix_rate))
 	if jet_stream != null:
 		_real_jet_player.stream = jet_stream
-	_real_jet_player.volume_db = -24.0
+	_real_jet_player.volume_db = 2.0
 	_real_jet_player.pitch_scale = 0.75
 	add_child(_real_jet_player)
 
@@ -76,25 +76,26 @@ func play_chime(kind: String) -> void:
 	else:
 		_chime_freqs = [440.00, 349.23, 440.00]
 
+func start_engine() -> void:
+	active = true
+	if _eng_player != null and not _eng_player.playing:
+		_eng_player.play()
+	if _eng_player != null and _eng_pb == null:
+		_eng_pb = _eng_player.get_stream_playback() as AudioStreamGeneratorPlayback
+	if _real_jet_player != null and _real_jet_player.stream != null:
+		_real_jet_player.volume_db = maxf(_jet_vol, 2.0)
+		if not _real_jet_player.playing:
+			_real_jet_player.play()
+
 func _process(delta: float) -> void:
-	if _eng_pb == null:
-		return
-	_bgm_timer += delta
-	if _bgm_timer >= STEP_SEC:
-		_bgm_timer = 0.0
-		_bgm_step = (_bgm_step + 1) % MELODY.size()
-
-	if _chime_timer > 0.0:
-		_chime_timer = maxf(0.0, _chime_timer - delta)
-
-	# Smooth Real Jet Engine Spool-Up / Spool-Down
+	# Smooth Real Jet Engine Spool-Up / Spool-Down (MUST run even if _eng_pb is null on Web!)
 	if _real_jet_player != null and _real_jet_player.stream != null:
 		if active:
 			if not _real_jet_player.playing:
 				_real_jet_player.play()
 			var spd_f: float = clampf(speed_val / 350.0, 0.0, 1.0)
-			var target_p: float = 0.72 + throttle_val * 0.52 + spd_f * 0.14
-			var target_v: float = lerpf(-19.5, -4.5, clampf(throttle_val * 0.85 + spd_f * 0.25, 0.0, 1.0))
+			var target_p: float = 0.74 + throttle_val * 0.50 + spd_f * 0.14
+			var target_v: float = lerpf(1.0, 12.0, clampf(throttle_val * 0.85 + spd_f * 0.25, 0.0, 1.0))
 			_jet_pitch = lerpf(_jet_pitch, target_p, minf(1.0, delta * 2.8))
 			_jet_vol = lerpf(_jet_vol, target_v, minf(1.0, delta * 3.2))
 			_real_jet_player.pitch_scale = _jet_pitch
@@ -102,6 +103,22 @@ func _process(delta: float) -> void:
 		else:
 			if _real_jet_player.playing:
 				_real_jet_player.stop()
+
+	if _eng_pb == null:
+		if active and _eng_player != null:
+			if not _eng_player.playing:
+				_eng_player.play()
+			_eng_pb = _eng_player.get_stream_playback() as AudioStreamGeneratorPlayback
+		if _eng_pb == null:
+			return
+
+	_bgm_timer += delta
+	if _bgm_timer >= STEP_SEC:
+		_bgm_timer = 0.0
+		_bgm_step = (_bgm_step + 1) % MELODY.size()
+
+	if _chime_timer > 0.0:
+		_chime_timer = maxf(0.0, _chime_timer - delta)
 
 	var frames: int = _eng_pb.get_frames_available()
 	if frames <= 0:

@@ -210,7 +210,7 @@ func _setup_audio() -> void:
 	var lm_stream := load("res://assets/audio/landing_music.mp3") as AudioStream
 	if lm_stream != null:
 		landing_music.stream = lm_stream
-	landing_music.volume_db = -3.0
+	landing_music.volume_db = -11.0
 	add_child(landing_music)
 
 	scroll_music = AudioStreamPlayer.new()
@@ -228,7 +228,7 @@ func _setup_audio() -> void:
 		(tm_stream as AudioStreamMP3).loop = true
 	if tm_stream != null:
 		takeoff_music.stream = tm_stream
-	takeoff_music.volume_db = -4.0
+	takeoff_music.volume_db = -12.0
 	add_child(takeoff_music)
 
 func _load_aircraft_model() -> void:
@@ -819,7 +819,7 @@ func _start_flight() -> void:
 	_build_clouds()
 
 	running = true
-	audio.active = true
+	audio.start_engine()
 	audio.bgm_enabled = false
 	if landing_music != null and landing_music.playing:
 		landing_music.stop()
@@ -1085,7 +1085,7 @@ func _process(delta: float) -> void:
 			audio.play_chime("atc")
 			audio.speak_mandarin("已進入跑道，許可起飛。")
 			_refresh_buttons()
-		elif phase == "TAXI_IN" and pz >= 115.0 and px >= 120.0:
+		elif phase == "TAXI_IN" and px >= 175.0 and pz >= 95.0 and pz <= 155.0:
 			speed = 0.0
 			throttle = 0.0
 			slider_thr.call("set_throttle_visual", 0.0)
@@ -1362,8 +1362,14 @@ func _process(delta: float) -> void:
 		flap_l.rotation = Vector3(flap_anim * 0.45, 0.22, 0.0)
 		flap_r.rotation = Vector3(flap_anim * 0.45, -0.22, 0.0)
 
+	var show_taxi_in: bool = ((phase == "APPROACH" and touchdown_done) or phase == "TAXI_IN")
 	if builder.taxi_arrows_root != null:
-		builder.taxi_arrows_root.visible = (phase in ["PUSHBACK_WAIT", "PUSHBACK", "TAXI_WAIT", "TAXI_OUT", "TAXI_IN"])
+		builder.taxi_arrows_root.visible = (phase in ["PUSHBACK_WAIT", "PUSHBACK", "TAXI_WAIT", "TAXI_OUT"])
+	if builder.taxi_in_arrows_root != null:
+		builder.taxi_in_arrows_root.visible = show_taxi_in
+	if builder.gate_turn_arrow != null:
+		builder.gate_turn_arrow.visible = show_taxi_in
+		builder.gate_turn_arrow.position.y = 11.5 + sin(t * 4.2) * 1.4
 
 	rain_particles.position = Vector3(px, py + 25.0, pz - 30.0)
 
@@ -1492,7 +1498,7 @@ func _spawn_approach_gates() -> void:
 func _enter_approach() -> void:
 	phase = "APPROACH"
 	audio.bgm_enabled = false
-	audio.active = true
+	audio.start_engine()
 	if scroll_music != null and scroll_music.playing:
 		scroll_music.stop()
 	if takeoff_music != null and takeoff_music.playing:
