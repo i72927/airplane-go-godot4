@@ -5,12 +5,14 @@ var jetbridge: Node3D
 var taxi_arrows_root: Node3D
 var tug_node: Node3D
 var wind_hubs: Array[Node3D] = []
+var radar_dishes: Array[Node3D] = []
 var papi_mats: Array[StandardMaterial3D] = []
 
 func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 	for c in root.get_children():
 		c.queue_free()
 	wind_hubs.clear()
+	radar_dishes.clear()
 	papi_mats.clear()
 
 	var is_night := (weather == "night")
@@ -38,8 +40,9 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 		ground_mat.metallic = 0.30
 	else:
 		ground_mat.albedo_texture = tex_urban
+		ground_mat.albedo_color = Color(0.84, 0.86, 0.88)
 		ground_mat.uv1_scale = Vector3(85, 85, 1)
-		ground_mat.roughness = 0.92
+		ground_mat.roughness = 0.94
 		if is_night:
 			ground_mat.albedo_color = Color(0.22, 0.30, 0.26)
 	var ground := MeshInstance3D.new()
@@ -51,8 +54,9 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 	# 2. Wide Realistic Airport Grounds (760m wide manicured airfield clearway)
 	var field_mat := StandardMaterial3D.new()
 	field_mat.albedo_texture = tex_grass
+	field_mat.albedo_color = Color(0.82, 0.90, 0.78)
 	field_mat.uv1_scale = Vector3(24, 65, 1)
-	field_mat.roughness = 0.90
+	field_mat.roughness = 0.92
 	if is_night:
 		field_mat.albedo_color = Color(0.24, 0.34, 0.28)
 	root.add_child(_make_plane(Vector2(760, rwy_len + 640), Vector3(120, -0.18, -rwy_len * 0.5), field_mat))
@@ -106,12 +110,11 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 	taxi_mat.roughness = 0.22 if is_rain else 0.82
 	root.add_child(_make_plane(Vector2(38, rwy_len + 260.0), Vector3(135, 0.04, -rwy_len * 0.5 + 110.0), taxi_mat))
 
-	# Wide South Runway Entry & High-Speed Angled Exit Connectors
-	for cz in [-20.0, -rwy_len * 0.35, -rwy_len * 0.68, -rwy_len + 80.0]:
-		var cw := 168.0 if cz == -20.0 else 148.0
-		var conn := _make_plane(Vector2(cw, 34.0 if cz == -20.0 else 28.0), Vector3(72.0, 0.035, cz), taxi_mat)
-		if cz < -100.0 and cz > -rwy_len + 150.0:
-			conn.rotation.y = 0.35
+	# Runway Entry & Exits at Every 1/4 Interval (0/4, 1/4, 2/4, 3/4, 4/4)
+	for cz in [-20.0, -rwy_len * 0.25, -rwy_len * 0.50, -rwy_len * 0.75, -rwy_len + 60.0]:
+		var is_end: bool = (cz == -20.0 or cz <= -rwy_len + 80.0)
+		var cw: float = 168.0 if is_end else 156.0
+		var conn := _make_plane(Vector2(cw, 36.0 if is_end else 32.0), Vector3(72.0, 0.035, cz), taxi_mat)
 		root.add_child(conn)
 
 	# Glowing 3D Dashed Taxiway Guide Arrows (Gate -> Taxiway -> South Connector -> Runway)
@@ -165,44 +168,62 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 		term_mat.emission_enabled = true
 		term_mat.emission_texture = tex_term
 		term_mat.emission_energy_multiplier = 0.85
-	root.add_child(_make_box_mat(Vector3(64, 26, 320), Vector3(310, 13, 30), term_mat))
+	root.add_child(_make_box_mat(Vector3(64, 26, 460), Vector3(310, 13, 60), term_mat))
 
 	# Hangar Complex on North Apron
 	for hz in [-320.0, -440.0]:
 		root.add_child(_make_box(Vector3(75, 22, 85), Vector3(295, 11, hz), Color(0.55, 0.60, 0.66)))
 
-	# Realistic Multi-Part Articulated Jetbridge (Rotunda + Glass Tunnel + Bogie Wheels + Rubber Seal)
+	# Realistic L-Shaped Articulated Jetbridge Connected Directly to Terminal Wall (x=278) -> Docks onto Port-Side L1 Door (Zero Fuselage Overlap!)
 	jetbridge = Node3D.new()
-	jetbridge.position = Vector3(172.0, 0.0, 128.0)
-	jetbridge.add_child(_make_cyl(3.2, 3.2, 8.2, Vector3(32.0, 4.1, 0.0), Color(0.68, 0.72, 0.78)))
-	jetbridge.add_child(_make_box(Vector3(34.0, 3.8, 4.2), Vector3(15.0, 5.2, 0.0), Color(0.84, 0.87, 0.92)))
-	jetbridge.add_child(_make_box_mat(Vector3(28.0, 1.8, 4.35), Vector3(15.0, 5.4, 0.0), term_mat))
-	for rib_x in [2.0, 10.0, 18.0, 26.0]:
-		jetbridge.add_child(_make_box(Vector3(0.6, 4.1, 4.5), Vector3(rib_x, 5.2, 0.0), Color(0.55, 0.60, 0.68)))
-	jetbridge.add_child(_make_box(Vector3(1.2, 3.6, 1.2), Vector3(4.0, 1.8, 0.0), Color(0.92, 0.74, 0.14)))
-	jetbridge.add_child(_make_cyl(0.85, 0.85, 2.2, Vector3(4.0, 0.85, 0.0), Color(0.12, 0.14, 0.18)))
-	jetbridge.add_child(_make_box(Vector3(2.8, 4.1, 4.6), Vector3(-2.6, 5.2, 0.0), Color(0.14, 0.16, 0.20)))
+	jetbridge.position = Vector3(278.0, 0.0, 114.0)
+	# Terminal connector rotunda anchored flush into terminal wall
+	jetbridge.add_child(_make_cyl(3.8, 3.8, 9.2, Vector3(0.0, 4.6, 0.0), Color(0.72, 0.76, 0.82)))
+	# Main west-extending glass passenger tunnel (x=0 -> -46, staying north of fuselage)
+	jetbridge.add_child(_make_box(Vector3(46.0, 3.8, 4.2), Vector3(-23.0, 5.2, 0.0), Color(0.86, 0.89, 0.94)))
+	jetbridge.add_child(_make_box_mat(Vector3(40.0, 1.8, 4.35), Vector3(-23.0, 5.4, 0.0), term_mat))
+	for rib_x in [-8.0, -18.0, -28.0, -38.0]:
+		jetbridge.add_child(_make_box(Vector3(0.65, 4.1, 4.5), Vector3(rib_x, 5.2, 0.0), Color(0.55, 0.60, 0.68)))
+	# Bogie drive column & dual wheels under tunnel
+	jetbridge.add_child(_make_box(Vector3(1.4, 3.6, 1.4), Vector3(-42.0, 1.8, 0.0), Color(0.92, 0.74, 0.14)))
+	jetbridge.add_child(_make_cyl(0.9, 0.9, 2.4, Vector3(-42.0, 0.9, 0.0), Color(0.12, 0.14, 0.18)))
+	# South-turning docking cab & black rubber canopy meeting aircraft L1 door (world x=232, z=124.5)
+	jetbridge.add_child(_make_box(Vector3(4.4, 3.9, 9.5), Vector3(-44.0, 5.2, 5.8), Color(0.82, 0.85, 0.90)))
+	jetbridge.add_child(_make_box(Vector3(4.6, 4.1, 2.2), Vector3(-44.0, 5.2, 11.2), Color(0.14, 0.16, 0.20)))
 	root.add_child(jetbridge)
 
 	var tug_res := load("res://assets/models/pushback_tug.glb") as PackedScene
 	if tug_res != null:
 		tug_node = tug_res.instantiate() as Node3D
-		tug_node.position = Vector3(175, 0, 112)
+		tug_node.position = Vector3(244, 0, 128)
 		root.add_child(tug_node)
 
-	# Control Tower
-	root.add_child(_make_cyl(5.5, 8.0, 56.0, Vector3(315, 28, -190), Color(0.84, 0.87, 0.91)))
-	root.add_child(_make_cyl_mat(13.0, 8.8, 11.0, Vector3(315, 60, -190), term_mat))
+	# PS3-Level Detailed Control Tower (Ribbed Shaft, Observation Collar, Panoramic Cab, Rotating Radar & Beacon)
+	var tw_pos := Vector3(315.0, 0.0, -190.0)
+	var tw_res := load("res://assets/models/control_tower.glb") as PackedScene
+	if tw_res != null:
+		var tw_node: Node3D = tw_res.instantiate() as Node3D
+		tw_node.position = tw_pos
+		root.add_child(tw_node)
+	var radar_hub := Node3D.new()
+	radar_hub.position = tw_pos + Vector3(0, 72.5, 0)
+	radar_hub.add_child(_make_cyl(1.4, 1.8, 3.0, Vector3(0, -1.0, 0), Color(0.55, 0.60, 0.66)))
+	radar_hub.add_child(_make_box(Vector3(8.5, 1.8, 1.2), Vector3(0, 1.0, 0), Color(0.95, 0.97, 1.0)))
+	root.add_child(radar_hub)
+	radar_dishes.append(radar_hub)
+	var beacon_mat := _emissive_mat(Color(1.0, 0.16, 0.16), 3.6)
+	root.add_child(_make_box_mat(Vector3(1.4, 1.4, 1.4), tw_pos + Vector3(11.5, 71.0, 0), beacon_mat))
 
 	# 4B. 20x Dense Airfield Props (Parked Neighboring AI Jets, GSE Trucks, Hangars, Perimeter Trees)
 	var b737_res := load("res://assets/models/b737_800.glb") as PackedScene
 	if b737_res != null:
-		for gz in [-180.0, -90.0, 240.0, 330.0]:
+		for gz in [-90.0, 20.0, 215.0]:
 			var ai_jet: Node3D = b737_res.instantiate() as Node3D
-			ai_jet.position = Vector3(235.0, 3.3, gz)
+			ai_jet.position = Vector3(216.0, 3.3, gz)
 			ai_jet.rotation.y = -PI * 0.5
 			root.add_child(ai_jet)
-			root.add_child(_make_box(Vector3(44, 4.4, 4.8), Vector3(268, 5.4, gz), Color(0.82, 0.85, 0.90)))
+			root.add_child(_make_box(Vector3(44, 3.8, 4.0), Vector3(256.0, 5.2, gz - 14.0), Color(0.84, 0.87, 0.92)))
+			root.add_child(_make_box(Vector3(4.2, 3.8, 11.5), Vector3(234.0, 5.2, gz - 8.2), Color(0.80, 0.84, 0.90)))
 	# Ground Support Equipment (Fuel Trucks & Baggage Carts on Apron)
 	for gz in [-160.0, -70.0, 145.0, 260.0]:
 		root.add_child(_make_box(Vector3(7.5, 2.8, 3.2), Vector3(205.0, 1.4, gz), Color(0.95, 0.78, 0.14)))
@@ -212,13 +233,16 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 	var mm_city := MultiMeshInstance3D.new()
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	var b_mesh := BoxMesh.new()
-	b_mesh.size = Vector3(1, 1, 1)
+	mm.use_colors = true
+	var b_mesh: Mesh = _extract_glb_mesh("res://assets/models/city_building.glb")
+	if b_mesh == null:
+		var fb := BoxMesh.new(); fb.size = Vector3(1, 1, 1); b_mesh = fb
 	mm.mesh = b_mesh
 	var b_mats := StandardMaterial3D.new()
+	b_mats.vertex_color_use_as_albedo = true
 	b_mats.albedo_texture = tex_city
 	b_mats.uv1_scale = Vector3(2, 3, 1)
-	b_mats.roughness = 0.65
+	b_mats.roughness = 0.58
 	if is_night:
 		b_mats.albedo_color = Color(0.32, 0.38, 0.48)
 		b_mats.emission_enabled = true
@@ -257,13 +281,43 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 			var bd := rng.randf_range(30.0, 58.0)
 			var bx: float = float(side_x) + rng.randf_range(-24.0, 24.0)
 			var bz := float(gz) + rng.randf_range(-28.0, 28.0)
-			transforms.append(Transform3D(Basis().scaled(Vector3(bw, bh, bd)), Vector3(bx, bh * 0.5, bz)))
-			transforms.append(Transform3D(Basis().scaled(Vector3(bw * 1.18, bh * 0.22, bd * 1.18)), Vector3(bx, bh * 0.11, bz)))
+			transforms.append(Transform3D(Basis().scaled(Vector3(bw, bh, bd)), Vector3(bx, 0.0, bz)))
+	var palettes: Array[Color] = [
+		Color(0.95, 0.93, 0.88),
+		Color(0.76, 0.88, 0.98),
+		Color(0.92, 0.78, 0.70),
+		Color(0.80, 0.84, 0.90),
+		Color(0.96, 0.90, 0.76)
+	]
 	mm.instance_count = transforms.size()
 	for idx in range(transforms.size()):
 		mm.set_instance_transform(idx, transforms[idx])
+		var pc: Color = palettes[idx % palettes.size()]
+		if is_night:
+			pc = pc * Color(0.45, 0.50, 0.60)
+		mm.set_instance_color(idx, pc)
 	mm_city.multimesh = mm
 	root.add_child(mm_city)
+
+	# 4C-2. Varied Post-Takeoff Terrain (Rolling Mountains, Green Hills & Farmland Patches)
+	var hill_col := Color(0.14, 0.40, 0.20) if not is_night else Color(0.05, 0.14, 0.10)
+	var ridge_col := Color(0.18, 0.46, 0.24) if not is_night else Color(0.06, 0.16, 0.12)
+	var field_cols: Array[Color] = [Color(0.32, 0.52, 0.24), Color(0.45, 0.58, 0.26), Color(0.24, 0.44, 0.22)]
+	for hi in range(14):
+		var hx: float = (-1450.0 if (hi % 2 == 0) else 1550.0) + rng.randf_range(-380.0, 380.0)
+		var hz: float = -800.0 - float(hi) * 420.0
+		var hh: float = rng.randf_range(120.0, 320.0)
+		var hr: float = rng.randf_range(340.0, 620.0)
+		root.add_child(_make_cyl(hr * 0.18, hr, hh, Vector3(hx, hh * 0.5 - 4.0, hz), hill_col if (hi % 2 == 0) else ridge_col))
+	if not airport["sea"]:
+		for fi in range(12):
+			var fx: float = rng.randf_range(-1800.0, 1800.0)
+			if absf(fx) < 420.0:
+				fx = 950.0 if fx >= 0.0 else -950.0
+			var fz: float = -2400.0 - float(fi) * 320.0
+			var fm := StandardMaterial3D.new()
+			fm.albedo_color = field_cols[fi % field_cols.size()] if not is_night else Color(0.08, 0.14, 0.10)
+			root.add_child(_make_plane(Vector2(rng.randf_range(220.0, 420.0), rng.randf_range(180.0, 320.0)), Vector3(fx, -0.35, fz), fm))
 
 	# 4D. Elevated Urban Expressway Viaducts Outside Airport Fence (Strong Parallax Speed Reference)
 	var exp_col := Color(0.46, 0.49, 0.54) if not is_night else Color(0.18, 0.21, 0.26)
@@ -355,11 +409,11 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 		root.add_child(_make_cyl(35.0, 320.0, 120.0, Vector3(-560, 56, -420), Color(0.10, 0.44, 0.22) if not is_night else Color(0.05, 0.14, 0.10)))
 		root.add_child(_make_box(Vector3(120, 46, 50), Vector3(-535, 102, -410), Color(0.75, 0.12, 0.12)))
 		root.add_child(_make_cyl(8.0, 86.0, 30.0, Vector3(-535, 138, -410), Color(0.92, 0.72, 0.08)))
+		# Cleanly bordered Keelung River tucked west of Yuanshan (no overlap with urban approach grid!)
 		var rv_mat := StandardMaterial3D.new()
-		rv_mat.albedo_color = Color(0.05, 0.16, 0.32) if is_night else Color(0.12, 0.42, 0.85)
-		rv_mat.roughness = 0.2
-		var rv := _make_plane(Vector2(150, 3000), Vector3(-360, -0.05, -260), rv_mat)
-		rv.rotation.y = 0.24
+		rv_mat.albedo_color = Color(0.04, 0.14, 0.24) if is_night else Color(0.10, 0.34, 0.48)
+		rv_mat.roughness = 0.28
+		var rv := _make_plane(Vector2(68, 1600), Vector3(-680, -0.42, -980), rv_mat)
 		root.add_child(rv)
 		# Dazhi Bridge Red Cable-Stayed Arch over Keelung River
 		var br_deck := _make_box(Vector3(280, 4.0, 22.0), Vector3(-360, 14.0, -340), Color(0.84, 0.86, 0.90))
@@ -379,14 +433,25 @@ func build(root: Node3D, airport: Dictionary, weather: String) -> void:
 			var bh := 48.0 + float((i * 27) % 96)
 			root.add_child(_make_box_mat(Vector3(46, bh, 46), Vector3(490 + (i % 4) * 78, bh * 0.5, 120 - floori(float(i) / 4.0) * 280), city_mat))
 	elif th == "fuk":
-		# Hakata City Skyline cleanly OUTSIDE the wide airport perimeter (x <= -420m or x >= +480m, plus approach blocks before z > 720m)
+		# Fukuoka Tower Glass Spire + Hakata City Skyline
+		root.add_child(_make_cyl(6.0, 26.0, 234.0, Vector3(-680, 117.0, -1480), Color(0.55, 0.80, 0.96)))
 		for fz in range(520, -1900, -145):
 			for k in range(3):
 				var h1 := 32.0 + float((abs(fz) + k * 31) % 58)
 				var h2 := 34.0 + float((abs(fz) + k * 19) % 62)
 				root.add_child(_make_box_mat(Vector3(52, h1, 52), Vector3(-430 - k * 82, h1 * 0.5, float(fz)), city_mat))
 				root.add_child(_make_box_mat(Vector3(52, h2, 52), Vector3(480 + k * 82, h2 * 0.5, float(fz)), city_mat))
-	elif th in ["kix", "oka", "mzg", "szx"]:
+	elif th == "szx":
+		# Shenzhen Ping An Finance Center Tapered Supertall + Shenzhen Bay Bridge
+		root.add_child(_make_cyl(8.0, 42.0, 520.0, Vector3(680, 260.0, -1550), Color(0.68, 0.84, 0.96)))
+		var sbr := _make_box(Vector3(26, 5, 2400), Vector3(-520, 30, -320), Color(0.72, 0.76, 0.82))
+		root.add_child(sbr)
+	elif th == "nrt":
+		# Naritasan Three-Story Red Pagoda + Rolling Chiba Hills
+		for tier in range(3):
+			root.add_child(_make_box(Vector3(38.0 - float(tier) * 8.0, 16.0, 38.0 - float(tier) * 8.0), Vector3(-540, 12.0 + float(tier) * 18.0, -980), Color(0.78, 0.16, 0.14)))
+			root.add_child(_make_box(Vector3(46.0 - float(tier) * 8.0, 4.0, 46.0 - float(tier) * 8.0), Vector3(-540, 21.0 + float(tier) * 18.0, -980), Color(0.18, 0.22, 0.26)))
+	elif th in ["kix", "oka", "mzg"]:
 		var br := _make_box(Vector3(26, 5, 2400), Vector3(520, 30, -320), Color(0.68, 0.72, 0.78))
 		br.rotation.y = 0.22
 		root.add_child(br)
@@ -433,3 +498,23 @@ func _make_plane(sz: Vector2, pos: Vector3, mat: Material) -> MeshInstance3D:
 
 func _emissive_mat(col: Color, energy: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.albedo_color = col; m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = energy; return m
+
+func _extract_glb_mesh(res_path: String) -> Mesh:
+	var ps := load(res_path) as PackedScene
+	if ps == null:
+		return null
+	var inst: Node = ps.instantiate()
+	var found: Mesh = _find_mesh_recursive(inst)
+	inst.free()
+	return found
+
+func _find_mesh_recursive(node: Node) -> Mesh:
+	if node is MeshInstance3D:
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi.mesh != null:
+			return mi.mesh
+	for ch in node.get_children():
+		var m: Mesh = _find_mesh_recursive(ch)
+		if m != null:
+			return m
+	return null

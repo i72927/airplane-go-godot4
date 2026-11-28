@@ -1,10 +1,17 @@
 extends Node3D
 
+const FlightStickPad = preload("res://scripts/flight_stick_pad.gd")
+const FlightThrottleLever = preload("res://scripts/flight_throttle_lever.gd")
+
 var planes: Array[Dictionary] = []
 var airlines: Array[Dictionary] = []
 var airports: Array[Dictionary] = []
 var builder := AirportBuilder.new()
 var audio: AudioSynth
+var takeoff_music: AudioStreamPlayer
+var landing_music: AudioStreamPlayer
+var scroll_music: AudioStreamPlayer
+var intro_video: VideoStreamPlayer
 
 # 3D Scene Nodes
 var world_env: WorldEnvironment
@@ -28,18 +35,18 @@ var cockpit_cam: Camera3D
 
 # UI Nodes
 var ui_layer: CanvasLayer
+var ui_theme: Theme
 var overlay: CockpitOverlay
 var lbl_time: Label
 var lbl_spd: Label
 var lbl_alt: Label
 var lbl_led: Label
 var lbl_pip_title: Label
-var btn_atc: Button
-var btn_gear: Button
-var btn_flaps: Button
+var btn_context: Button
+var joy: Control
 var btn_wiper: Button
 var btn_cam: Button
-var slider_thr: VSlider
+var slider_thr: Control
 var setup_panel: PanelContainer
 var result_panel: PanelContainer
 var opt_plane: OptionButton
@@ -92,8 +99,15 @@ var warn_cd: float = 0.0
 var landing_vsi: float = 0.0
 var landing_offset: float = 0.0
 var cruise_gates: Array[Dictionary] = []
-var parkour_vy: float = 0.0
-var parkour_clouds: Array[Dictionary] = []
+var scroll_plane_y: float = 0.5
+var scroll_time_left: float = 30.0
+var scroll_intro_t: float = 0.0
+var lbl_scroll_intro: Label
+var scroll_spawn_t: float = 0.0
+var scroll_star_t: float = 0.0
+var scroll_invuln: float = 0.0
+var scroll_clouds: Array[Dictionary] = []
+var scroll_stars: Array[Dictionary] = []
 var t: float = 0.0
 
 var steer_left: bool = false
@@ -190,7 +204,32 @@ func _setup_3d_world() -> void:
 
 func _setup_audio() -> void:
 	audio = AudioSynth.new()
+	audio.bgm_enabled = false
 	add_child(audio)
+	landing_music = AudioStreamPlayer.new()
+	var lm_stream := load("res://assets/audio/landing_music.mp3") as AudioStream
+	if lm_stream != null:
+		landing_music.stream = lm_stream
+	landing_music.volume_db = -3.0
+	add_child(landing_music)
+
+	scroll_music = AudioStreamPlayer.new()
+	var sm_stream := load("res://assets/audio/scroll_music.mp3") as AudioStream
+	if sm_stream is AudioStreamMP3:
+		(sm_stream as AudioStreamMP3).loop = true
+	if sm_stream != null:
+		scroll_music.stream = sm_stream
+	scroll_music.volume_db = -3.5
+	add_child(scroll_music)
+
+	takeoff_music = AudioStreamPlayer.new()
+	var tm_stream := load("res://assets/audio/takeoff_music.mp3") as AudioStream
+	if tm_stream is AudioStreamMP3:
+		(tm_stream as AudioStreamMP3).loop = true
+	if tm_stream != null:
+		takeoff_music.stream = tm_stream
+	takeoff_music.volume_db = -4.0
+	add_child(takeoff_music)
 
 func _load_aircraft_model() -> void:
 	for c in plane_root.get_children():
@@ -227,7 +266,7 @@ func _load_aircraft_model() -> void:
 
 	# Articulated Extending Flaps (Clearly visible when extended/retracted)
 	var fmat := StandardMaterial3D.new()
-	fmat.albedo_color = Color(0.26, 0.30, 0.36)
+	fmat.albedo_color = Color(0.54, 0.58, 0.64)
 	fmat.metallic = 0.35
 	var ftrim_mat := StandardMaterial3D.new()
 	ftrim_mat.albedo_color = Color(0.95, 0.48, 0.12)
@@ -369,7 +408,7 @@ func _apply_weather() -> void:
 		sky_mat.sky_horizon_color = Color(0.94, 0.44, 0.14)
 		sky_mat.ground_horizon_color = Color(0.55, 0.24, 0.12)
 		sun.light_color = Color(1.0, 0.62, 0.28)
-		sun.light_energy = 1.4
+		sun.light_energy = 0.85
 		sun.rotation_degrees = Vector3(-12, -55, 0)
 		env.fog_light_color = Color(0.85, 0.42, 0.20)
 		env.fog_density = 0.00028
@@ -387,28 +426,45 @@ func _apply_weather() -> void:
 		sky_mat.sky_horizon_color = Color(0.32, 0.39, 0.47)
 		sky_mat.ground_horizon_color = Color(0.22, 0.27, 0.33)
 		sun.light_color = Color(0.75, 0.82, 0.90)
-		sun.light_energy = 0.65
+		sun.light_energy = 0.52
 		sun.rotation_degrees = Vector3(-55, -20, 0)
 		env.fog_light_color = Color(0.32, 0.38, 0.45)
 		env.fog_density = 0.00062
 	else:
-		sky_mat.sky_top_color = Color(0.12, 0.42, 0.82)
-		sky_mat.sky_horizon_color = Color(0.64, 0.86, 0.98)
-		sky_mat.ground_horizon_color = Color(0.52, 0.72, 0.84)
-		sun.light_color = Color(1.0, 0.98, 0.92)
-		sun.light_energy = 1.5
-		sun.rotation_degrees = Vector3(-44, -32, 0)
-		env.fog_light_color = Color(0.72, 0.88, 0.98)
-		env.fog_density = 0.00016
+		sky_mat.sky_top_color = Color(0.07, 0.26, 0.62)
+		sky_mat.sky_horizon_color = Color(0.42, 0.66, 0.86)
+		sky_mat.ground_horizon_color = Color(0.32, 0.48, 0.62)
+		sun.light_color = Color(1.0, 0.95, 0.86)
+		sun.light_energy = 1.22
+		sun.rotation_degrees = Vector3(-42, -32, 0)
+		env.fog_light_color = Color(0.58, 0.74, 0.88)
+		env.fog_density = 0.00010
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 0.94
+	env.ambient_light_energy = 0.68
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 1.02
+	env.adjustment_contrast = 1.05
+	env.adjustment_saturation = 1.12
 	rain_particles.emitting = (weather == "rain")
 
 func _setup_ui() -> void:
 	ui_layer = CanvasLayer.new()
 	add_child(ui_layer)
+	var zh_f := load("res://assets/fonts/zh_font.ttf") as Font
+	ui_theme = Theme.new()
+	if zh_f != null:
+		ui_theme.default_font = zh_f
+		ui_theme.default_font_size = 16
+	var root_ctrl := Control.new()
+	root_ctrl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_ctrl.theme = ui_theme
+	ui_layer.add_child(root_ctrl)
 
 	overlay = CockpitOverlay.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ui_layer.add_child(overlay)
+	root_ctrl.add_child(overlay)
 
 	# Top HUD Bar
 	var top_bar := HBoxContainer.new()
@@ -418,7 +474,7 @@ func _setup_ui() -> void:
 	top_bar.offset_top = 8
 	top_bar.offset_bottom = 48
 	top_bar.add_theme_constant_override("separation", 12)
-	ui_layer.add_child(top_bar)
+	root_ctrl.add_child(top_bar)
 
 	lbl_time = _hud_label("TIME 150.0s", Color(1.0, 0.88, 0.28))
 	lbl_spd = _hud_label("SPD 0 KT", Color(0.22, 0.74, 0.97))
@@ -431,46 +487,99 @@ func _setup_ui() -> void:
 	top_bar.add_child(lbl_alt)
 	top_bar.add_child(lbl_led)
 
+	var btn_fs := Button.new()
+	btn_fs.text = "⛶ 全螢幕"
+	btn_fs.pressed.connect(_toggle_fullscreen)
+	top_bar.add_child(btn_fs)
+
 	var btn_menu := Button.new()
 	btn_menu.text = "⚙ 航線選單"
 	btn_menu.pressed.connect(_open_menu)
 	top_bar.add_child(btn_menu)
+
+	# Centered 3-Second Black-Box / Yellow-Text Intro Banner for Q-Version Minigame
+	lbl_scroll_intro = Label.new()
+	lbl_scroll_intro.set_anchors_preset(Control.PRESET_CENTER)
+	lbl_scroll_intro.offset_left = -290
+	lbl_scroll_intro.offset_right = 290
+	lbl_scroll_intro.offset_top = -54
+	lbl_scroll_intro.offset_bottom = 54
+	lbl_scroll_intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl_scroll_intro.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl_scroll_intro.text = "☁️ Q版飛機閃雲小遊戲（30秒）\n使用右側蘑菇搖桿上下閃避雲朵！"
+	lbl_scroll_intro.add_theme_color_override("font_color", Color(1.0, 0.90, 0.16))
+	lbl_scroll_intro.add_theme_font_size_override("font_size", 24)
+	var intro_sb := StyleBoxFlat.new()
+	intro_sb.bg_color = Color(0.03, 0.03, 0.05, 0.94)
+	intro_sb.border_color = Color(1.0, 0.88, 0.16)
+	intro_sb.set_border_width_all(3)
+	intro_sb.set_corner_radius_all(12)
+	intro_sb.set_content_margin_all(14)
+	lbl_scroll_intro.add_theme_stylebox_override("normal", intro_sb)
+	lbl_scroll_intro.visible = false
+	root_ctrl.add_child(lbl_scroll_intro)
 
 	# PiP Title label
 	lbl_pip_title = Label.new()
 	lbl_pip_title.position = Vector2(24, 72)
 	lbl_pip_title.add_theme_color_override("font_color", Color(0.49, 0.83, 0.99))
 	lbl_pip_title.visible = false
-	ui_layer.add_child(lbl_pip_title)
+	root_ctrl.add_child(lbl_pip_title)
+
+	# Contextual Single Action Button (Bright Yellow + Black Border) Above Left Throttle
+	btn_context = Button.new()
+	btn_context.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	btn_context.offset_left = 16
+	btn_context.offset_right = 176
+	btn_context.offset_top = -206
+	btn_context.offset_bottom = -148
+	btn_context.text = "📡 塔台聯絡"
+	btn_context.visible = false
+	var ctx_sb := StyleBoxFlat.new()
+	ctx_sb.bg_color = Color(1.0, 0.87, 0.12)
+	ctx_sb.border_color = Color(0.04, 0.04, 0.04)
+	ctx_sb.set_border_width_all(4)
+	ctx_sb.set_corner_radius_all(10)
+	var ctx_sb_h := ctx_sb.duplicate() as StyleBoxFlat
+	ctx_sb_h.bg_color = Color(1.0, 0.93, 0.35)
+	var ctx_sb_p := ctx_sb.duplicate() as StyleBoxFlat
+	ctx_sb_p.bg_color = Color(0.92, 0.72, 0.05)
+	btn_context.add_theme_stylebox_override("normal", ctx_sb)
+	btn_context.add_theme_stylebox_override("hover", ctx_sb_h)
+	btn_context.add_theme_stylebox_override("pressed", ctx_sb_p)
+	btn_context.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
+	btn_context.add_theme_color_override("font_hover_color", Color(0.05, 0.05, 0.05))
+	btn_context.add_theme_color_override("font_pressed_color", Color(0.05, 0.05, 0.05))
+	btn_context.add_theme_font_size_override("font_size", 18)
+	btn_context.pressed.connect(_on_context_pressed)
+	root_ctrl.add_child(btn_context)
 
 	# Bottom Touch / Mouse Controls
 	var bot := HBoxContainer.new()
 	bot.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bot.offset_left = 16
 	bot.offset_right = -16
-	bot.offset_top = -132
+	bot.offset_top = -152
 	bot.offset_bottom = -12
 	bot.add_theme_constant_override("separation", 12)
-	ui_layer.add_child(bot)
+	root_ctrl.add_child(bot)
 
-	slider_thr = VSlider.new()
-	slider_thr.min_value = 0.0
-	slider_thr.max_value = 100.0
-	slider_thr.custom_minimum_size = Vector2(44, 110)
-	slider_thr.value_changed.connect(func(v: float): throttle = v / 100.0)
+	slider_thr = FlightThrottleLever.new()
+	slider_thr.connect("throttle_changed", func(v: float): throttle = v)
 	bot.add_child(slider_thr)
 
 	var left_col := VBoxContainer.new()
+	left_col.alignment = BoxContainer.ALIGNMENT_END
 	var btn_toga := Button.new()
 	btn_toga.text = "推滿起飛"
-	btn_toga.custom_minimum_size = Vector2(92, 48)
+	btn_toga.custom_minimum_size = Vector2(96, 52)
 	btn_toga.pressed.connect(func():
 		throttle = 0.0 if throttle >= 0.95 else 1.0
-		slider_thr.value = throttle * 100.0
+		slider_thr.call("set_throttle_visual", throttle)
 	)
 	var btn_brk := Button.new()
 	btn_brk.text = "煞車 / 反推"
-	btn_brk.custom_minimum_size = Vector2(92, 54)
+	btn_brk.custom_minimum_size = Vector2(96, 56)
 	btn_brk.button_down.connect(func(): brake_held = true)
 	btn_brk.button_up.connect(func(): brake_held = false)
 	left_col.add_child(btn_toga)
@@ -481,54 +590,40 @@ func _setup_ui() -> void:
 	spacer1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bot.add_child(spacer1)
 
-	btn_atc = Button.new()
-	btn_atc.text = "📡 塔台聯絡"
-	btn_atc.custom_minimum_size = Vector2(128, 60)
-	btn_atc.pressed.connect(_on_atc_pressed)
-	bot.add_child(btn_atc)
-
-	btn_gear = Button.new()
-	btn_gear.text = "起落架：放下"
-	btn_gear.custom_minimum_size = Vector2(118, 60)
-	btn_gear.pressed.connect(_on_gear_pressed)
-	bot.add_child(btn_gear)
-
-	btn_flaps = Button.new()
-	btn_flaps.text = "襟翼：0"
-	btn_flaps.custom_minimum_size = Vector2(96, 60)
-	btn_flaps.pressed.connect(_on_flaps_pressed)
-	bot.add_child(btn_flaps)
-
+	var mid_col := HBoxContainer.new()
+	mid_col.size_flags_vertical = Control.SIZE_SHRINK_END
 	btn_wiper = Button.new()
 	btn_wiper.text = "雨刷：關"
-	btn_wiper.custom_minimum_size = Vector2(92, 60)
+	btn_wiper.custom_minimum_size = Vector2(92, 52)
 	btn_wiper.pressed.connect(_on_wiper_pressed)
-	bot.add_child(btn_wiper)
+	mid_col.add_child(btn_wiper)
 
 	btn_cam = Button.new()
 	btn_cam.text = "👁 機尾後方"
-	btn_cam.custom_minimum_size = Vector2(112, 60)
+	btn_cam.custom_minimum_size = Vector2(112, 52)
 	btn_cam.pressed.connect(_on_cam_pressed)
-	bot.add_child(btn_cam)
+	mid_col.add_child(btn_cam)
+	bot.add_child(mid_col)
 
 	var spacer2 := Control.new()
 	spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bot.add_child(spacer2)
 
-	# Steering Pad
-	var pad := GridContainer.new()
-	pad.columns = 3
-	pad.add_child(Control.new())
-	var b_up := _steer_btn("俯↓", func(d): steer_up = d)
-	pad.add_child(b_up)
-	pad.add_child(Control.new())
-	pad.add_child(_steer_btn("◀", func(d): steer_left = d))
-	pad.add_child(Control.new())
-	pad.add_child(_steer_btn("▶", func(d): steer_right = d))
-	pad.add_child(Control.new())
-	pad.add_child(_steer_btn("仰↑", func(d): steer_down = d))
-	pad.add_child(Control.new())
-	bot.add_child(pad)
+	# Right-Side Virtual Mushroom Joystick (Mobile & Desktop Friendly)
+	joy = FlightStickPad.new()
+	bot.add_child(joy)
+
+	# Full-Screen Looping Intro Background Video behind Setup Menu
+	intro_video = VideoStreamPlayer.new()
+	intro_video.set_anchors_preset(Control.PRESET_FULL_RECT)
+	intro_video.expand = true
+	intro_video.loop = true
+	intro_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vid_res := load("res://assets/video/intro_bg.ogv") as VideoStream
+	if vid_res != null:
+		intro_video.stream = vid_res
+	root_ctrl.add_child(intro_video)
+	intro_video.play()
 
 	_build_setup_panel()
 	_build_result_panel()
@@ -559,10 +654,18 @@ func _steer_btn(txt: String, cb: Callable) -> Button:
 
 func _build_setup_panel() -> void:
 	setup_panel = PanelContainer.new()
+	var sp_sb := StyleBoxFlat.new()
+	sp_sb.bg_color = Color(0.05, 0.08, 0.15, 0.78)
+	sp_sb.border_color = Color(0.35, 0.65, 0.92, 0.85)
+	sp_sb.set_border_width_all(2)
+	sp_sb.set_corner_radius_all(12)
+	sp_sb.set_content_margin_all(14)
+	setup_panel.add_theme_stylebox_override("panel", sp_sb)
 	setup_panel.set_anchors_preset(Control.PRESET_CENTER)
 	setup_panel.custom_minimum_size = Vector2(680, 380)
 	setup_panel.offset_left = -340
 	setup_panel.offset_top = -190
+	setup_panel.theme = ui_theme
 	ui_layer.add_child(setup_panel)
 
 	var vb := VBoxContainer.new()
@@ -624,11 +727,19 @@ func _build_setup_panel() -> void:
 
 func _build_result_panel() -> void:
 	result_panel = PanelContainer.new()
+	var rp_sb := StyleBoxFlat.new()
+	rp_sb.bg_color = Color(0.05, 0.08, 0.15, 0.80)
+	rp_sb.border_color = Color(0.98, 0.84, 0.20, 0.90)
+	rp_sb.set_border_width_all(2)
+	rp_sb.set_corner_radius_all(12)
+	rp_sb.set_content_margin_all(16)
+	result_panel.add_theme_stylebox_override("panel", rp_sb)
 	result_panel.set_anchors_preset(Control.PRESET_CENTER)
 	result_panel.custom_minimum_size = Vector2(540, 280)
 	result_panel.offset_left = -270
 	result_panel.offset_top = -140
 	result_panel.visible = false
+	result_panel.theme = ui_theme
 	ui_layer.add_child(result_panel)
 
 	var vb := VBoxContainer.new()
@@ -677,6 +788,17 @@ func _open_menu() -> void:
 	running = false
 	phase = "DEMO"
 	audio.active = false
+	audio.bgm_enabled = false
+	if landing_music != null and landing_music.playing:
+		landing_music.stop()
+	if scroll_music != null and scroll_music.playing:
+		scroll_music.stop()
+	if takeoff_music != null and takeoff_music.playing:
+		takeoff_music.stop()
+	if intro_video != null:
+		intro_video.visible = true
+		if not intro_video.is_playing():
+			intro_video.play()
 	overlay.show_pip = false
 	lbl_pip_title.visible = false
 	result_panel.visible = false
@@ -694,10 +816,22 @@ func _start_flight() -> void:
 
 	running = true
 	audio.active = true
+	audio.bgm_enabled = false
+	if landing_music != null and landing_music.playing:
+		landing_music.stop()
+	if scroll_music != null and scroll_music.playing:
+		scroll_music.stop()
+	if takeoff_music != null and takeoff_music.playing:
+		takeoff_music.stop()
+	if intro_video != null:
+		intro_video.stop()
+		intro_video.visible = false
+	if takeoff_music != null and takeoff_music.stream != null:
+		takeoff_music.play()
 	phase = "GATE_BOARD"
 	time_left = 150.0 if (dep_apt["code"] == "KHH" and arr_apt["code"] == "MZG") else 180.0
 	throttle = 0.0
-	slider_thr.value = 0.0
+	slider_thr.call("set_throttle_visual", 0.0)
 	brake_held = false
 	gear_down = true
 	flap_idx = 0
@@ -758,9 +892,9 @@ func _on_atc_pressed() -> void:
 		yaw = 0.0
 		if flap_idx == 0:
 			flap_idx = 1
-		lbl_led.text = "許可起飛 (+3s)！推滿油門加速至 %d KT 按「仰↑」離地" % int(cur_plane["vr"])
+		lbl_led.text = "許可起飛 (+3s)！推滿油門加速至 %d KT 將搖桿往下拉起離地" % int(cur_plane["vr"])
 		audio.speak_mandarin("許可進入%s跑道起飛，祝您一路順風。" % dep_apt["rwy"])
-	elif phase == "PARKOUR":
+	elif phase == "SCROLL":
 		_enter_approach()
 		return
 	if false:
@@ -808,18 +942,61 @@ func _on_cam_pressed() -> void:
 	cockpit_cam.current = cam_is_cockpit
 	_refresh_buttons()
 
+func _get_context_action() -> String:
+	if not running:
+		return ""
+	if atc_ready:
+		return "atc"
+	if phase == "TAKEOFF" and alt > 45.0:
+		if gear_down:
+			return "gear_up"
+		elif flap_idx > 0 and alt > 110.0:
+			return "flaps_up"
+	if phase == "APPROACH" and not touchdown_done:
+		if not gear_down:
+			return "gear_dn"
+		elif flap_idx == 0:
+			return "flaps_dn"
+	return ""
+
+func _on_context_pressed() -> void:
+	var act := _get_context_action()
+	if act == "atc":
+		_on_atc_pressed()
+	elif act == "gear_up" or act == "gear_dn":
+		_on_gear_pressed()
+	elif act == "flaps_up" or act == "flaps_dn":
+		_on_flaps_pressed()
+
 func _refresh_buttons() -> void:
-	btn_gear.text = "起落架：" + ("放下🟢🟢🟢" if gear_down else "收起")
-	btn_flaps.text = "襟翼：" + str(cur_plane["flaps"][flap_idx])
 	btn_wiper.text = "雨刷：" + ["關", "慢速", "高速"][wiper_mode]
 	btn_cam.text = "👁 駕駛艙" if cam_is_cockpit else "👁 機尾後方"
-	btn_atc.modulate = Color(0.45, 1.0, 0.55) if atc_ready else Color(1, 1, 1)
+	var act := _get_context_action()
+	if act == "atc":
+		btn_context.text = "📡 塔台聯絡"
+		btn_context.visible = true
+	elif act == "gear_up":
+		btn_context.text = "🛞 收起落架"
+		btn_context.visible = true
+	elif act == "gear_dn":
+		btn_context.text = "🛞 放下起落架"
+		btn_context.visible = true
+	elif act == "flaps_up":
+		btn_context.text = "🪶 收起襟翼"
+		btn_context.visible = true
+	elif act == "flaps_dn":
+		btn_context.text = "🪶 開啟襟翼"
+		btn_context.visible = true
+	else:
+		btn_context.visible = false
 
 func _process(delta: float) -> void:
 	var dt := minf(delta, 0.05)
 	t += dt
 	for h in builder.wind_hubs:
 		h.rotation.z -= dt * 1.4
+	for rd in builder.radar_dishes:
+		rd.rotation.y += dt * 1.8
 
 	if wiper_mode > 0:
 		wiper_angle = sin(t * (3.5 if wiper_mode == 1 else 6.5))
@@ -833,10 +1010,10 @@ func _process(delta: float) -> void:
 	var kb_d := Input.is_key_pressed(KEY_DOWN)
 	if running and Input.is_key_pressed(KEY_W):
 		throttle = clampf(throttle + dt * 0.5, 0.0, 1.0)
-		slider_thr.value = throttle * 100.0
+		slider_thr.call("set_throttle_visual", throttle)
 	if running and Input.is_key_pressed(KEY_S):
 		throttle = clampf(throttle - dt * 0.5, 0.0, 1.0)
-		slider_thr.value = throttle * 100.0
+		slider_thr.call("set_throttle_visual", throttle)
 	var is_brk := brake_held or Input.is_key_pressed(KEY_B)
 
 	if not running:
@@ -852,8 +1029,13 @@ func _process(delta: float) -> void:
 		time_left = maxf(0.0, time_left - dt)
 
 	var wet := 0.78 if weather == "rain" else 1.0
-	var steer_in := (1.0 if (steer_right or kb_r) else 0.0) - (1.0 if (steer_left or kb_l) else 0.0)
-	var pitch_in := (1.0 if (steer_down or kb_d) else 0.0) - (1.0 if (steer_up or kb_u) else 0.0)
+	var jv: Vector2 = joy.call("get_stick_vec") if (joy != null and joy.has_method("get_stick_vec")) else Vector2.ZERO
+	var jx: float = jv.x
+	var jy: float = jv.y
+	var kb_steer := (1.0 if kb_r else 0.0) - (1.0 if kb_l else 0.0)
+	var kb_pitch := (1.0 if kb_u else 0.0) - (1.0 if kb_d else 0.0)
+	var steer_in := clampf(jx + kb_steer, -1.0, 1.0)
+	var pitch_in: float = clampf(jy - kb_pitch, -1.0, 1.0)
 
 	if phase == "GATE_BOARD":
 		board_pct = minf(100.0, board_pct + dt * 22.0)
@@ -869,10 +1051,10 @@ func _process(delta: float) -> void:
 		push_pct = minf(100.0, push_pct + dt * 26.0)
 		var f := push_pct / 100.0
 		speed = 6.0
-		px = 186.0 - f * 51.0
+		px = 216.0 - f * 81.0
 		yaw = -PI * 0.5 * (1.0 - f)
 		if builder.jetbridge != null:
-			builder.jetbridge.position.x = 172.0 + f * 20.0
+			builder.jetbridge.position.z = 114.0 - f * 6.0
 		if builder.tug_node != null:
 			builder.tug_node.position = Vector3(px + 14.0 * cos(yaw), 0.0, pz - 14.0 * sin(yaw))
 		if push_pct >= 100.0:
@@ -889,30 +1071,27 @@ func _process(delta: float) -> void:
 		speed = maxf(0.0, speed - 25.0 * wet * dt) if is_brk else lerpf(speed, tspd, dt * 1.8)
 		yaw -= steer_in * maxf(minf(speed, 18.0), 4.0) * 0.065 * dt
 		var mv := speed * 0.514 * dt * 2.2
-		px = clampf(px - sin(yaw) * mv, -18.0, 155.0)
-		pz = clampf(pz - cos(yaw) * mv, -45.0, 150.0)
-		if phase == "TAXI_OUT" and pz <= 8.0 and absf(px) <= 22.0:
-			px = 0.0
-			pz = -18.0
-			yaw = 0.0
+		px = clampf(px - sin(yaw) * mv, -26.0, 222.0)
+		pz = clampf(pz - cos(yaw) * mv, -2900.0, 155.0)
+		if phase == "TAXI_OUT" and pz <= 16.0 and absf(px) <= 26.0:
 			flap_idx = 1
 			phase = "TAKEOFF"
 			time_left += 5.0
-			lbl_led.text = "進入 %s 跑道 (+5s)！推滿油門加速至 %d KT 按「仰↑」離地" % [dep_apt["rwy"], int(cur_plane["vr"])]
+			lbl_led.text = "已順暢滑入 %s 跑道 (+5s)！對準中線推滿油門加速起飛" % dep_apt["rwy"]
 			audio.play_chime("atc")
 			audio.speak_mandarin("已進入跑道，許可起飛。")
 			_refresh_buttons()
 		elif phase == "TAXI_IN" and pz >= 115.0 and px >= 120.0:
 			speed = 0.0
 			throttle = 0.0
-			slider_thr.value = 0.0
+			slider_thr.call("set_throttle_visual", 0.0)
 			phase = "GATE_DEPLANE"
 			board_pct = 0.0
-			px = 186.0
+			px = 216.0
 			pz = 128.0
 			yaw = -PI * 0.5
 			if builder.jetbridge != null:
-				builder.jetbridge.position.x = 172.0
+				builder.jetbridge.position.z = 114.0
 			overlay.show_pip = true
 			overlay.pip_is_boarding = false
 			lbl_pip_title.visible = true
@@ -927,21 +1106,23 @@ func _process(delta: float) -> void:
 			v1_called = true
 			v_callout_cd = 2.3
 			lbl_led.text = "V1（%d KT）・已達決斷速度" % int(cur_plane["v1"])
-			audio.speak_mandarin("V1")
+			audio.speak_pilot_male("V1")
 		if v1_called and not vr_called and speed >= float(cur_plane["vr"]) and v_callout_cd <= 0.0:
 			vr_called = true
 			v_callout_cd = 2.3
-			lbl_led.text = "Vr（%d KT）・可起飛！請按「仰↑」拉桿離地" % int(cur_plane["vr"])
-			audio.speak_mandarin("VR，可拉桿起飛")
+			lbl_led.text = "Vr（%d KT）・可起飛！請將搖桿往下拉起離地" % int(cur_plane["vr"])
+			audio.speak_pilot_male("Rotate")
 		if vr_called and not v2_called and speed >= float(cur_plane["v2"]) and v_callout_cd <= 0.0:
 			v2_called = true
 			v_callout_cd = 2.3
 			lbl_led.text = "V2（%d KT）・安全爬升速度" % int(cur_plane["v2"])
-			audio.speak_mandarin("V2，安全爬升")
+			audio.speak_pilot_male("V2")
 
 		if alt <= 0.0:
-			px = clampf(px + steer_in * minf(speed, 90.0) * 0.14 * dt, -24.0, 24.0)
-			pz -= speed * 0.514 * dt * 1.4
+			yaw = lerpf(yaw, 0.0, dt * 1.8) - steer_in * 0.35 * dt
+			var to_mv: float = speed * 0.514 * dt * 1.4
+			px = clampf(px - sin(yaw) * to_mv + steer_in * minf(speed, 90.0) * 0.12 * dt, -24.0, 24.0)
+			pz -= cos(yaw) * to_mv
 			pitch = minf(16.0, pitch + 14.0 * dt) if (speed >= float(cur_plane["vr"]) * 0.9 and pitch_in > 0.0) else maxf(0.0, pitch - 8.0 * dt)
 			if speed >= float(cur_plane["vr"]) and pitch > 4.0:
 				alt = 20.0
@@ -963,53 +1144,105 @@ func _process(delta: float) -> void:
 				time_left += 5.0
 				lbl_led.text = "收輪收襟翼完成 (+5s)！持續爬升進入巡航"
 			if alt >= 2200.0:
-				phase = "PARKOUR"
+				phase = "SCROLL"
+				audio.bgm_enabled = false
+				audio.active = false
+				if takeoff_music != null and takeoff_music.playing:
+					takeoff_music.stop()
+				if scroll_music != null and scroll_music.stream != null:
+					scroll_music.play()
 				airport_root.visible = false
+				plane_root.visible = false
+				scroll_plane_y = 0.5
+				scroll_time_left = 30.0
+				scroll_intro_t = 3.0
+				scroll_spawn_t = 0.6
+				scroll_star_t = 1.6
+				scroll_invuln = 0.0
+				scroll_clouds.clear()
+				scroll_stars.clear()
 				alt = 28000.0
-				py = 520.0
-				px = 0.0
-				pz = 0.0
-				parkour_vy = 14.0
 				speed = float(cur_plane["cruise_spd"])
-				pitch = 0.0
-				roll = 0.0
-				yaw = 0.0
-				_spawn_parkour_clouds()
-				lbl_led.text = "☁️ 雲朵跑酷！點擊螢幕（或按空白鍵／仰↑）往上飛閃避積雲"
-				audio.speak_mandarin("進入雲層跑酷區，點擊畫面往上飛閃避前方雲朵。")
-	elif phase == "PARKOUR":
-		if Input.is_action_just_pressed("ui_accept") or Input.is_key_pressed(KEY_SPACE):
-			parkour_vy = 28.0
-		if steer_up or kb_u:
-			parkour_vy = maxf(parkour_vy, 24.0)
-		parkour_vy -= 42.0 * dt
-		py = clampf(py + parkour_vy * dt, 445.0, 625.0)
-		if py <= 445.0 or py >= 625.0:
-			parkour_vy = 0.0
-		pitch = clampf(parkour_vy * 0.65, -22.0, 22.0)
-		roll = lerpf(roll, steer_in * 28.0, dt * 5.0)
-		px = clampf(px + sin(deg_to_rad(roll)) * 64.0 * dt, -95.0, 95.0)
-		alt = 28000.0 + (py - 520.0) * 30.0
+				lbl_scroll_intro.visible = true
+				lbl_led.text = "☁️ Q版飛機閃雲小遊戲（30秒）・用右側搖桿上下閃避雲朵"
+				_refresh_buttons()
+	elif phase == "SCROLL":
+		var move_y: float = (jy - kb_pitch) * 0.62
+		scroll_plane_y = clampf(scroll_plane_y + move_y * dt, 0.14, 0.84)
+		alt = 28000.0 + (0.5 - scroll_plane_y) * 2400.0
 		speed = float(cur_plane["cruise_spd"])
-		pz -= 92.0 * dt
-		for c in parkour_clouds:
-			if not c["passed"] and pz <= float(c["z"]):
-				c["passed"] = true
-				if absf(py - float(c["y"])) < 26.0 and absf(px - float(c["x"])) < 44.0:
-					time_left = maxf(0.0, time_left - 4.0)
-					parkour_vy = 14.0
+		if scroll_intro_t > 0.0:
+			scroll_intro_t = maxf(0.0, scroll_intro_t - dt)
+			lbl_scroll_intro.visible = (scroll_intro_t > 0.0)
+			lbl_time.text = "準備 %ds" % ceili(scroll_intro_t)
+		else:
+			lbl_scroll_intro.visible = false
+			scroll_time_left = maxf(0.0, scroll_time_left - dt)
+			scroll_invuln = maxf(0.0, scroll_invuln - dt)
+			# Spawn obstacle clouds & bonus stars
+			scroll_spawn_t -= dt
+			if scroll_spawn_t <= 0.0:
+				scroll_spawn_t = randf_range(0.75, 1.35)
+				scroll_clouds.append({
+					"x": 1.12,
+					"y": randf_range(0.16, 0.82),
+					"r": randf_range(0.055, 0.082),
+					"spd": randf_range(0.28, 0.42),
+					"hit": false,
+					"scored": false
+				})
+			scroll_star_t -= dt
+			if scroll_star_t <= 0.0:
+				scroll_star_t = randf_range(2.2, 3.6)
+				scroll_stars.append({
+					"x": 1.10,
+					"y": randf_range(0.18, 0.80),
+					"spd": 0.32
+				})
+
+			# Update clouds & collision
+			var kept_clouds: Array[Dictionary] = []
+			for cl in scroll_clouds:
+				cl["x"] = float(cl["x"]) - float(cl["spd"]) * dt
+				var dx := absf(float(cl["x"]) - 0.22)
+				var dy := absf(float(cl["y"]) - scroll_plane_y)
+				if not cl["hit"] and scroll_invuln <= 0.0 and dx < 0.065 and dy < float(cl["r"]) + 0.042:
+					cl["hit"] = true
+					scroll_invuln = 1.2
+					time_left = maxf(0.0, time_left - 3.0)
 					audio.play_chime("warn")
-					lbl_led.text = "☁️ 擦撞積雲 (-4s)！點擊螢幕往上飛閃避"
-				else:
-					time_left += 2.0
+					lbl_led.text = "☁️ 撞到調皮雲朵 (-3s)！快用搖桿上下閃開"
+				elif not cl["scored"] and float(cl["x"]) < 0.14:
+					cl["scored"] = true
+					if not cl["hit"]:
+						time_left += 1.0
+				if float(cl["x"]) > -0.15:
+					kept_clouds.append(cl)
+			scroll_clouds = kept_clouds
+
+			# Update bonus stars
+			var kept_stars: Array[Dictionary] = []
+			for st in scroll_stars:
+				st["x"] = float(st["x"]) - float(st["spd"]) * dt
+				if absf(float(st["x"]) - 0.22) < 0.055 and absf(float(st["y"]) - scroll_plane_y) < 0.065:
+					time_left += 3.0
 					audio.play_chime("ring")
-					lbl_led.text = "✨ 成功閃過積雲 (+2s)！繼續點擊往上飛"
-		if pz <= -2250.0:
-			_enter_approach()
+					lbl_led.text = "⭐ 吃到幸運星 (+3s)！剩餘 %d:%02d 進入降落" % [floori(scroll_time_left / 60.0), int(scroll_time_left) % 60]
+				elif float(st["x"]) > -0.10:
+					kept_stars.append(st)
+			scroll_stars = kept_stars
+
+			var mm_s := floori(scroll_time_left / 60.0)
+			var ss_s := int(scroll_time_left) % 60
+			lbl_time.text = "閃雲 %02d:%02d" % [mm_s, ss_s]
+			if scroll_time_left <= 0.0:
+				scroll_clouds.clear()
+				scroll_stars.clear()
+				_enter_approach()
 	elif phase == "APPROACH":
 		var gh := float(cur_plane["gear_height"])
 		if not touchdown_done:
-			var tspd := 122.0 + throttle * 110.0 - float(flap_idx) * 10.0 - (8.0 if gear_down else 0.0)
+			var tspd: float = 78.0 + throttle * 115.0 - (14.0 if flap_idx > 0 else 0.0) - (10.0 if gear_down else 0.0)
 			speed = lerpf(speed, tspd, dt * 1.2)
 			roll = lerpf(roll, steer_in * 20.0, dt * 4.0)
 			pitch = clampf(pitch + pitch_in * 14.0 * dt, -10.0, 12.0)
@@ -1019,7 +1252,7 @@ func _process(delta: float) -> void:
 			px = clampf(px + sin(deg_to_rad(roll)) * 34.0 * dt, -75.0, 75.0)
 			pz -= speed * 0.514 * dt * 1.45
 
-			var ideal_y := maxf(gh, (pz + 160.0) * 0.085)
+			var ideal_y: float = maxf(gh, (pz + 160.0) * 0.090)
 			for g in cruise_gates:
 				if not g["hit"] and absf(pz - float(g["z"])) < 32.0:
 					g["hit"] = true
@@ -1032,7 +1265,7 @@ func _process(delta: float) -> void:
 			for ra in [500, 100, 50, 30, 20, 10]:
 				if alt <= float(ra) and not ra_flags.has(ra):
 					ra_flags[ra] = true
-					audio.speak_mandarin(str(ra))
+					audio.speak_pilot_male(str(ra))
 			overlay.ils_x_err = px
 			overlay.ils_y_err = py - ideal_y
 			var diff := py - ideal_y
@@ -1064,16 +1297,18 @@ func _process(delta: float) -> void:
 					lbl_led.text = "✈️ 主輪接地 (+6s)！請長按「煞車 / 反推」減速"
 				_refresh_buttons()
 		else:
-			var decel := (float(cur_plane["brake_power"]) * 1.45 * wet if is_brk else 6.5) + (1.0 - throttle) * 5.0
+			var decel: float = (float(cur_plane["brake_power"]) * 1.45 * wet if is_brk else 5.0) + (1.0 - throttle) * 4.5
 			speed = maxf(0.0, speed - decel * dt)
-			px = clampf(px + steer_in * 10.0 * dt, -24.0, 24.0)
-			pz -= speed * 0.514 * dt * 1.3
-			if speed <= 22.0:
+			yaw -= steer_in * maxf(minf(speed, 22.0), 4.0) * 0.045 * dt
+			var r_mv: float = speed * 0.514 * dt * 1.3
+			px = clampf(px - sin(yaw) * r_mv, -24.0, 195.0)
+			pz -= cos(yaw) * r_mv
+			if speed <= 40.0 or px > 26.0:
 				phase = "TAXI_IN"
 				if landing_offset < 6.0:
 					time_left += 10.0
-				lbl_led.text = "減速完成！請直接右轉經聯絡道滑回 %s 停機坪 (x=135, z=128)" % arr_apt["name"]
-				audio.speak_mandarin("歡迎抵達%s，請直接右轉滑行回停機坪。" % arr_apt["name"])
+				lbl_led.text = "減速完成！請由前方任一 1/4 出口右轉滑回 %s 停機坪" % arr_apt["name"]
+				audio.speak_mandarin("歡迎抵達%s，請由前方出口右轉直接滑行回停機坪。" % arr_apt["name"])
 				_refresh_buttons()
 	elif phase == "GATE_DEPLANE":
 		board_pct = minf(100.0, board_pct + dt * 24.0)
@@ -1084,6 +1319,16 @@ func _process(delta: float) -> void:
 			phase = "RESULT"
 			running = false
 			audio.active = false
+			audio.bgm_enabled = false
+			if landing_music != null and landing_music.playing:
+				landing_music.stop()
+			if takeoff_music != null and takeoff_music.playing:
+				takeoff_music.stop()
+			if scroll_music != null and scroll_music.playing:
+				scroll_music.stop()
+			if intro_video != null:
+				intro_video.visible = true
+				intro_video.play()
 			var grade := "S" if time_left >= 165.0 else ("A" if time_left >= 135.0 else ("B" if time_left >= 95.0 else "C"))
 			lbl_res_body.text = "綜合評級：%s 級\n執飛航線：%s・%s ➔ %s\n最終剩餘時間：%.1f 秒\n著陸表現：%s（偏離中線 %.1f 公尺）\n塔台中文語音通話：%d 次完成" % [
 				grade, cur_plane["name"], dep_apt["name"], arr_apt["name"], time_left,
@@ -1105,10 +1350,13 @@ func _process(delta: float) -> void:
 
 	flap_anim = lerpf(flap_anim, 1.0 if flap_idx > 0 else 0.0, dt * 3.5)
 	if flap_l != null and flap_r != null:
-		flap_l.position = Vector3(-8.5, -0.8 - flap_anim * 0.55, 2.2 + flap_anim * 1.75)
-		flap_r.position = Vector3(8.5, -0.8 - flap_anim * 0.55, 2.2 + flap_anim * 1.75)
-		flap_l.rotation.x = flap_anim * 0.48
-		flap_r.rotation.x = flap_anim * 0.48
+		var f_vis: bool = (flap_anim > 0.04)
+		flap_l.visible = f_vis
+		flap_r.visible = f_vis
+		flap_l.position = Vector3(-8.5, -0.55 - flap_anim * 0.72, 4.8 + flap_anim * 1.85)
+		flap_r.position = Vector3(8.5, -0.55 - flap_anim * 0.72, 4.8 + flap_anim * 1.85)
+		flap_l.rotation = Vector3(flap_anim * 0.45, 0.22, 0.0)
+		flap_r.rotation = Vector3(flap_anim * 0.45, -0.22, 0.0)
 
 	if builder.taxi_arrows_root != null:
 		builder.taxi_arrows_root.visible = (phase in ["PUSHBACK_WAIT", "PUSHBACK", "TAXI_WAIT", "TAXI_OUT", "TAXI_IN"])
@@ -1122,7 +1370,7 @@ func _process(delta: float) -> void:
 	var rumble := (sin(t * 48.0) * 0.14 * spd_ratio) if (alt <= 0.5 and speed > 25.0) else 0.0
 
 	if not cam_is_cockpit:
-		plane_root.visible = true
+		plane_root.visible = (phase != "SCROLL")
 		if phase in ["GATE_BOARD", "PUSHBACK_WAIT", "PUSHBACK", "GATE_DEPLANE"]:
 			chase_cam.position = Vector3(px - 44.0, 20.0, pz + 40.0)
 			chase_cam.look_at(Vector3(px + 10.0, 6.0, pz - 6.0))
@@ -1140,8 +1388,10 @@ func _process(delta: float) -> void:
 		cockpit_cam.position = Vector3(px - sin(yaw) * cz, py + float(cur_plane["cockpit_y"]) + rumble * 0.7, pz - cos(yaw) * cz)
 		cockpit_cam.rotation = Vector3(deg_to_rad(pitch), yaw, deg_to_rad(-roll))
 
-	# Update HUD & Overlay
-	lbl_time.text = "TIME %.1fs" % time_left
+	# Update Contextual Button & HUD / Overlay
+	_refresh_buttons()
+	if phase != "SCROLL":
+		lbl_time.text = "TIME %.1fs" % time_left
 	lbl_spd.text = "SPD %d KT" % int(speed)
 	lbl_alt.text = "ALT %d FT" % int(alt)
 	audio.throttle_val = throttle
@@ -1160,13 +1410,17 @@ func _process(delta: float) -> void:
 	overlay.alt_ft = py * 3.28084
 	overlay.gear_dn = gear_down
 	overlay.hdg_deg = -yaw
-	overlay.show_hud = (running and phase in ["TAKEOFF", "PARKOUR", "APPROACH"])
-	overlay.target_spd = float(cur_plane["vr"]) if phase == "TAKEOFF" else (float(cur_plane["cruise_spd"]) if phase == "PARKOUR" else float(cur_plane["vref"]))
-	overlay.target_alt = 28000.0 if phase == "PARKOUR" else (maxf(0.0, (pz + 160.0) * 0.8) if phase == "APPROACH" else 2200.0)
-	overlay.plane_px = px
-	overlay.plane_pz = pz
+	overlay.scroll_active = (running and phase == "SCROLL")
+	overlay.scroll_plane_y = scroll_plane_y
+	overlay.scroll_invuln = scroll_invuln
+	overlay.scroll_time_left = scroll_time_left
+	overlay.scroll_clouds = scroll_clouds
+	overlay.scroll_stars = scroll_stars
+	overlay.airline_id = str(cur_airline["id"])
+	overlay.plane_id = str(cur_plane["id"])
+	overlay.weather_mode = weather
 	var w_msg := ""
-	if running and alt > 40.0 and speed < float(cur_plane["vref"]) * 0.78:
+	if running and alt > 40.0 and speed < 64.0:
 		w_msg = "WARNING: 失速警告！請推油門"
 	elif running and phase == "APPROACH" and not touchdown_done and alt < 500.0 and speed > float(cur_plane["vref"]) * 1.35:
 		w_msg = "CAUTION: 速度過快！請減速"
@@ -1221,8 +1475,8 @@ func _spawn_approach_gates() -> void:
 	mat.emission_enabled = true
 	mat.emission = Color(0.28, 0.96, 0.46)
 	mat.emission_energy_multiplier = 2.6
-	for gz in [1350.0, 900.0, 450.0]:
-		var gy := maxf(18.0, (gz + 160.0) * 0.085)
+	for gz in [3000.0, 2250.0, 1500.0, 750.0]:
+		var gy: float = maxf(18.0, (gz + 160.0) * 0.090)
 		var m := MeshInstance3D.new()
 		m.mesh = tm
 		m.material_override = mat
@@ -1231,22 +1485,25 @@ func _spawn_approach_gates() -> void:
 		cruise_root.add_child(m)
 		cruise_gates.append({"x": 0.0, "y": gy, "z": gz, "hit": false, "mesh": m})
 
-func _unhandled_input(event: InputEvent) -> void:
-	if running and phase == "PARKOUR":
-		if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
-			parkour_vy = 30.0
-			audio.play_chime("ring")
-
 func _enter_approach() -> void:
 	phase = "APPROACH"
+	audio.bgm_enabled = false
+	audio.active = true
+	if scroll_music != null and scroll_music.playing:
+		scroll_music.stop()
+	if takeoff_music != null and takeoff_music.playing:
+		takeoff_music.stop()
+	if landing_music != null and landing_music.stream != null:
+		landing_music.play()
 	airport_root.visible = true
 	builder.build(airport_root, arr_apt, weather)
 	_spawn_approach_gates()
 	px = randf_range(-24.0, 24.0)
-	py = 175.0
-	alt = 1650.0
-	pz = 1850.0
-	speed = 185.0
+	lbl_scroll_intro.visible = false
+	py = 350.0
+	alt = 3300.0
+	pz = 3700.0
+	speed = 160.0
 	pitch = -2.0
 	roll = 0.0
 	yaw = 0.0
@@ -1255,25 +1512,13 @@ func _enter_approach() -> void:
 	audio.speak_mandarin("已進入%s進場航道，請確認放下起落架與襟翼準備降落。" % arr_apt["name"])
 	_refresh_buttons()
 
-func _spawn_parkour_clouds() -> void:
-	for c in cruise_root.get_children():
-		c.queue_free()
-	parkour_clouds.clear()
-	var sm := SphereMesh.new(); sm.radius = 22.0; sm.height = 18.0
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.96, 0.98, 1.0)
-	mat.roughness = 0.95
-	for i in range(12):
-		var cz := -280.0 - float(i) * 165.0
-		var cy := 475.0 + float((i * 53) % 115)
-		var cx := -42.0 + float((i * 37) % 84)
-		var grp := Node3D.new()
-		grp.position = Vector3(cx, cy, cz)
-		for off in [Vector3(-14, -2, 0), Vector3(0, 4, 0), Vector3(14, -1, 0)]:
-			var m := MeshInstance3D.new()
-			m.mesh = sm; m.material_override = mat
-			m.scale = Vector3(1.1, 0.85, 0.95)
-			m.position = off
-			grp.add_child(m)
-		cruise_root.add_child(grp)
-		parkour_clouds.append({"x": cx, "y": cy, "z": cz, "passed": false, "node": grp})
+
+func _toggle_fullscreen() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("var el=document.documentElement;if(!document.fullscreenElement&&!document.webkitFullscreenElement){if(el.requestFullscreen){el.requestFullscreen();}else if(el.webkitRequestFullscreen){el.webkitRequestFullscreen();}}else{if(document.exitFullscreen){document.exitFullscreen();}else if(document.webkitExitFullscreen){document.webkitExitFullscreen();}}")
+	else:
+		var cur_mode: int = DisplayServer.window_get_mode()
+		if cur_mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		else:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
